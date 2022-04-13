@@ -33,8 +33,9 @@ def assign_gpu():
         cuda_id = int(device_ids[slurm_localid])
     elif shutil.which('qstat'):
         cuda_id = int(os.environ['MPI_LOCALRANKID'])
+    else:
+        cuda_id = 0
 
-    cuda_id = 0
     out = subprocess.check_output(['nvidia-smi', '-q', '--xml-format'])
     tree = ET.fromstring(out)
     gpus = tree.findall('gpu')
