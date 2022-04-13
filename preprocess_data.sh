@@ -1,5 +1,3 @@
-#!/bin/bash
-
 conda activate focalpose
 
 python -m focalpose.scripts.cars_to_urdf

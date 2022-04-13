@@ -1,6 +1,4 @@
-#!/bin/bash
-
-mkdir -p local_data && cd local_data
+mkdir -p ./local_data/ && cd ./local_data/
 
 wget http://pix3d.csail.mit.edu/data/pix3d.zip
 wget http://ai.stanford.edu/~jkrause/car196/cars_train.tgz
