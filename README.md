@@ -53,7 +53,7 @@ The rendering process can be potentially sped-up by running the command without 
 [dask_jobqueue](https://jobqueue.dask.org) library. You will need to fix config of the `SLURMCluster` in the
 [record_dataset.py](focalpose/recording/record_dataset.py) according to your cluster.
 
-Alternatively, synthetic data can be downloaded at [this link](https://data.ciirc.cvut.cz/public/projects/2022FocalPose/synth_data/). The downloaded data should be unpacked into 'local_data/synt_datasets` folder.
+Alternatively, synthetic data can be downloaded at [this link](https://data.ciirc.cvut.cz/public/projects/2022FocalPose/synth_data/). The downloaded data should be unpacked into `local_data/synt_datasets` folder.
 
 ## Training and evaluating the models
 The model can be trained via the following command:
