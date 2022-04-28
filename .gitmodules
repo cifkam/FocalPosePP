@@ -1,0 +1,3 @@
+[submodule "deep_bingham"]
+	path = deep_bingham
+	url = git@github.com:igilitschenski/deep_bingham.git
