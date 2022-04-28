@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -82,6 +84,19 @@ class Pix3DDataset:
 
         return rgb, mask, dict(camera=camera, objects=[objects])
 
+    @property
+    def R(self):
+        return self.R_pix3d.as_matrix() @ np.array(self.index['rot_mat'].to_list())
+    
+    @property
+    def t(self):
+        return self.R_pix3d.apply(np.array(self.index['trans_mat'].to_list()))
+    
+    @property
+    def f(self):
+        focal_length = np.array(self.index['focal_length'].to_list())
+        resolution = np.array(self.index['img_size'].to_list())
+        return (focal_length * resolution[:,0]) / 32
 
 class StanfordCars3DDataset:
     def __init__(self, ds_dir, train=True):
@@ -123,6 +138,18 @@ class StanfordCars3DDataset:
 
         return rgb, mask, dict(camera=camera, objects=[objects])
 
+    @property
+    def R(self):
+        return np.array(self.index['TCO'].to_list())[:,:3,:3]
+    
+    @property
+    def t(self):
+        return np.array(self.index['TCO'].to_list())[:,:3,3]
+    
+    @property
+    def f(self):
+        return np.array(self.index['K'].to_list())[:,0,0]
+
 
 class CompCars3DDataset:
     def __init__(self, ds_dir, train=True):
@@ -159,3 +186,15 @@ class CompCars3DDataset:
         objects = dict(TWO=np.eye(4), name=name, scale=1, id_in_segm=1, bbox=bbox)
 
         return rgb, mask, dict(camera=camera, objects=[objects])
+
+    @property
+    def R(self):
+        return np.array(self.index['TCO'].to_list())[:,:3,:3]
+    
+    @property
+    def t(self):
+        return np.array(self.index['TCO'].to_list())[:,:3,3]
+    
+    @property
+    def f(self):
+        return np.array(self.index['K'].to_list())[:,0,0]
