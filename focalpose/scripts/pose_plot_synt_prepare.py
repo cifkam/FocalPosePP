@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 from focalpose.config import SYNT_DS_DIR
 from pathlib import Path
 from focalpose.datasets.synthetic_dataset import SyntheticSceneDataset
@@ -27,3 +25,23 @@ if __name__ == '__main__':
 
         df = pd.DataFrame(rows)
         df.to_pickle(filename)
+    
+
+
+    dirs = list(Path(SYNT_DS_DIR).iterdir())
+    ds_prefixes = [
+        'compcars3d',
+        'stanfordcars3d',
+        'pix3d-chair',
+        'pix3d-bed',
+        'pix3d-sofa',
+        'pix3d-table'
+        ]
+
+    for prefix in ds_prefixes:
+        print(f"Merging {prefix}")
+        dfs = []
+        for dir in [x for x in dirs if x.parts[-1][:len(prefix)] == prefix]:
+            dfs.append(pd.read_pickle(dir/'camera.pkl'))
+        all = pd.concat(dfs)
+        all.to_pickle(Path(SYNT_DS_DIR) / ('camera-'+prefix+'.pkl'))

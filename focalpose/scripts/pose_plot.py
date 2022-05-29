@@ -3,6 +3,7 @@
 from sys import exit
 import argparse
 import numpy as np
+import numpy.linalg
 import numpy.random as nr
 from pathlib import Path
 from matplotlib import projections, pyplot as plt, patches
@@ -13,7 +14,6 @@ from scipy.spatial.transform import Rotation
 from deep_bingham.bingham_distribution import BinghamDistribution
 from focalpose.config import LOCAL_DATA_DIR
 from focalpose.datasets.real_dataset import Pix3DDataset, CompCars3DDataset, StanfordCars3DDataset
-import numpy.linalg
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset',  type=str,   default=None, help='{stanfordcars, compcars, pix3d-{bed, chair, sofa, table} }')
@@ -32,11 +32,14 @@ parser.add_argument('--zf',  action='store_true', default=False, help='Plot grap
 
 pix3d_categories = ['bed', 'chair', 'sofa', 'table']
 ALPHA = 0.25
+FIGSIZE_2D=(8,6)
+FIGSIZE_3D=(7,6)
+LEGEND_LOC='upper right'
 
 
 def process(dataset, outliers):
     if outliers > 0:
-        d = process(dataset, False)
+        d = process(dataset, 0)
         zf = np.vstack([d['t'][:,2], d['f']]).T
         dataset.index = dataset.index.drop(get_outliers(zf, outliers))
 
@@ -62,11 +65,17 @@ def process(dataset, outliers):
     d['t']         = t
     d['cam_pos']   = cam_poses
     d['R_quat']    = R_quat
-    d['bingham']   = bingham
+
+    #d['bingham']   = bingham
+    d['bingham_z'] = bingham._param_z
+    d['bingham_m'] = bingham._param_m
+
     d['xy_mu']     = xy_mu
     d['xy_cov']    = xy_cov
+
     d['logzf_mu']  = logzf_mu
     d['logzf_cov'] = logzf_cov
+
     d['f']         = f
     return d
 
@@ -78,7 +87,7 @@ def set_xyz_labels(ax, z=True):
 
 
 def plot_cam_pos(pos, ds_name):
-    fig = plt.figure()
+    fig = plt.figure(figsize=FIGSIZE_3D)
     ax = plt.axes(projection='3d')
     fig.suptitle('Cam positions: ' + ds_name)
     ax.scatter(pos[:,0], pos[:,1], pos[:,2], c='b')
@@ -87,7 +96,7 @@ def plot_cam_pos(pos, ds_name):
 
 
 def plot_trans(trans, ds_name):
-    fig = plt.figure()
+    fig = plt.figure(figsize=FIGSIZE_3D)
     ax = plt.axes(projection='3d')
     set_xyz_labels(ax)
 
@@ -98,7 +107,7 @@ def plot_trans(trans, ds_name):
 
 def plot_rot_axis(rot, axis, bingham, ds_name, plt_ax=None):
     if plt_ax is None:
-        fig = plt.figure()
+        fig = plt.figure(figsize=FIGSIZE_3D)
         ax = plt.axes(projection='3d')
         ax.set_xlim(-1,1)
         ax.set_ylim(-1,1)
@@ -125,15 +134,15 @@ def plot_rot_axis(rot, axis, bingham, ds_name, plt_ax=None):
             ax if args.overlay else None)
     
     if plt_ax is None:
-        ax.legend()
+        ax.legend(loc=LEGEND_LOC)
 
 
 def plot_xy(xy, xy_mu, xy_cov, ds_name, plt_ax=None):
     if plt_ax is None:
-        fig,ax = plt.subplots()
+        fig,ax = plt.subplots(figsize=FIGSIZE_2D)
         set_xyz_labels(ax,z=False)
-        ax.set_title('x:y: ' + ds_name)
-        ax.add_patch(patches.Rectangle((-0.15, -0.15), 0.3, 0.3, alpha=ALPHA, color='k', label='Uniform'))
+        ax.set_title('x:y : ' + ds_name)
+        ax.add_patch(patches.Rectangle((-0.15, -0.15), 0.3, 0.3, alpha=ALPHA, color='k', label='FocalPose synt. data'))
     else:
         ax = plt_ax
 
@@ -149,16 +158,16 @@ def plot_xy(xy, xy_mu, xy_cov, ds_name, plt_ax=None):
             ax if args.overlay else None)
 
     if plt_ax is None:
-        ax.legend()
+        ax.legend(loc=LEGEND_LOC)
 
 
 def plot_zf(z, f, logzf_mu, logzf_cov, ds_name, plt_ax=None):
     if plt_ax is None:
-        fig,ax = plt.subplots()
+        fig,ax = plt.subplots(figsize=FIGSIZE_2D)
         ax.set_xlabel('z')
         ax.set_ylabel('f')
-        ax.set_title('z-axis:focal_lenght: ' + ds_name)
-        ax.add_patch(patches.Rectangle((0.8, 200), 1.6, 800, alpha=ALPHA, color='k', label='Uniform'))
+        ax.set_title('z:f : ' + ds_name)
+        ax.add_patch(patches.Rectangle((0.8, 200), 1.6, 800, alpha=ALPHA, color='k', label='FocalPose synt. data'))
     else:
         ax = plt_ax
 
@@ -175,12 +184,12 @@ def plot_zf(z, f, logzf_mu, logzf_cov, ds_name, plt_ax=None):
             ax if args.overlay else None)
 
     if plt_ax is None:
-        ax.legend()
+        ax.legend(loc=LEGEND_LOC)
 
 def plot(args, d, ds_name):
     bingham, xy_mu, xy_cov, logzf_mu, logzf_cov = None, None, None, None, None
     if args.fit:
-        bingham   = d['bingham']
+        bingham   = BinghamDistribution(d['bingham_m'], d['bingham_z']) #d['bingham']
         xy_mu     = d['xy_mu']
         xy_cov    = d['xy_cov']
         logzf_mu  = d['logzf_mu']
