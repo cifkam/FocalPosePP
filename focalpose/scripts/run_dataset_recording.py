@@ -3,14 +3,17 @@ from colorama import Fore, Style
 
 from focalpose.config import LOCAL_DATA_DIR
 from focalpose.recording.record_dataset import record_dataset
-
+import json
 
 def make_cfg(cfg_name,
              resume_ds_name='',
              debug=False,
              distributed=False,
              overwrite=False,
-             datasets_dir=LOCAL_DATA_DIR):
+             datasets_dir=LOCAL_DATA_DIR,
+             fit=False,
+             realpose=False):
+
     datasets_dir = datasets_dir / 'synt_datasets'
     datasets_dir.mkdir(exist_ok=True)
 
@@ -51,9 +54,14 @@ def make_cfg(cfg_name,
         cfg.n_chunks = n_frames // cfg.n_frames_per_chunk
         cfg.ds_name = f'{cfg_name}-1M'
 
+        cfg.scene_kwargs['']
         cfg.scene_kwargs.update(
             urdf_ds='pix3d-sofa',
         )
+        if fit:
+            with open(LOCAL_DATA_DIR / 'pix3d' / 'sofa-fit.json') as f:
+                fit_json = json.loads(f.read())
+
     elif cfg_name == 'pix3d-bed':
         n_frames = 1e6
         cfg.n_frames_per_chunk = 100
@@ -63,6 +71,10 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.update(
             urdf_ds='pix3d-bed',
         )
+        if fit:
+            with open(LOCAL_DATA_DIR / 'pix3d' / 'bed-fit.json') as f:
+                fit_json = json.loads(f.read())
+
     elif cfg_name == 'pix3d-table':
         n_frames = 1e6
         cfg.n_frames_per_chunk = 100
@@ -72,6 +84,10 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.update(
             urdf_ds='pix3d-table',
         )
+        if fit:
+            with open(LOCAL_DATA_DIR / 'pix3d' / 'table-fit.json') as f:
+                fit_json = json.loads(f.read())
+
     elif 'pix3d-chair' in cfg_name:
         cfg.scene_kwargs['camera_distance_interval'] = (0.8, 3.4)
         n_frames = 50000
@@ -82,6 +98,10 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.update(
             urdf_ds=cfg_name,
         )
+        if fit:
+            with open(LOCAL_DATA_DIR / 'pix3d' / 'chair-fit.json') as f:
+                fit_json = json.loads(f.read())
+
     elif cfg_name == 'pix3d':
         n_frames = 1e6
         cfg.n_frames_per_chunk = 100
@@ -91,6 +111,9 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.update(
             urdf_ds='pix3d',
         )
+        if fit:
+            raise NotImplementedError('')
+
     elif 'stanfordcars' in cfg_name:
         n_frames = 75000
         cfg.scene_kwargs['camera_distance_interval'] = (0.8, 3.0)
@@ -102,6 +125,10 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.update(
             urdf_ds=cfg_name,
         )
+        if fit:
+            with open(LOCAL_DATA_DIR / 'StanfordCars' / 'fit.json') as f:
+                fit_json = json.loads(f.read())
+
     elif 'compcars' in cfg_name:
         n_frames = 100000
         cfg.scene_kwargs['camera_distance_interval'] = (0.8, 3.0)
@@ -113,12 +140,43 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.update(
             urdf_ds=cfg_name,
         )
+        if fit:
+            with open(LOCAL_DATA_DIR / 'CompCars' / 'fit.json') as f:
+                fit_json = json.loads(f.read())
 
     elif resume_ds_name:
         pass
 
     else:
         raise ValueError('Unknown config')
+
+    """
+    if realpose:
+        from focalpose.datasets.real_dataset import Pix3DDataset, CompCars3DDataset, StanfordCars3DDataset
+        cfg.scene_cls = 'focalpose.recording.bop_recording_scene_realpose.BopRecordingSceneRealPose'
+        cfg.scene_kwargs.pop('objects_xyz_interval')
+        cfg.scene_kwargs.pop('camera_distance_interval')
+        cfg.scene_kwargs.pop('focal_interval')
+        if   cfg_name == 'pix3d-sofa':   cfg.scene_kwargs['real_dataset'] = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'sofa', True)
+        elif cfg_name == 'pix3d-bed':    cfg.scene_kwargs['real_dataset'] = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'bed', True)
+        elif cfg_name == 'pix3d-table':  cfg.scene_kwargs['real_dataset'] = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'table', True)
+        elif 'pix3d-chair' in cfg_name:  cfg.scene_kwargs['real_dataset'] = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'chair', True)
+        elif 'stanfordcars' in cfg_name: cfg.scene_kwargs['real_dataset'] = StanfordCars3DDataset(LOCAL_DATA_DIR / 'StanfordCars', True)
+        elif 'compcars' in cfg_name:     cfg.scene_kwargs['real_dataset'] = CompCars3DDataset(LOCAL_DATA_DIR / 'CompCars', True)
+        
+    elif"""
+    if fit:
+        cfg.scene_cls = 'focalpose.recording.bop_recording_scene_nonuniform.BopRecordingSceneNonuniform'
+        cfg.scene_kwargs.pop('objects_xyz_interval')
+        cfg.scene_kwargs.pop('camera_distance_interval')
+        cfg.scene_kwargs.pop('focal_interval')
+        cfg.scene_kwargs['xy_mu'] = fit_json['xy_mu']
+        cfg.scene_kwargs['xy_cov'] = fit_json['xy_cov']
+        cfg.scene_kwargs['zf_log_mu'] = fit_json['zf_log_mu']
+        cfg.scene_kwargs['zf_log_cov'] = fit_json['zf_log_cov']
+        cfg.scene_kwargs['rot_bingham_z'] = fit_json['rot_bingham_z']
+        cfg.scene_kwargs['rot_bingham_m'] = fit_json['rot_bingham_m']
+        
 
     if debug:
         n_frames = 10
@@ -144,6 +202,12 @@ def main():
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--local', action='store_true')
     parser.add_argument('--overwrite', action='store_true')
+    parser.add_argument('--fit', action='store_true')
+
+    
+    parser.add_argument('--realpose', action='store_true') ####################################x
+
+
     args = parser.parse_args()
 
     print(f"{Fore.RED}using config {args.config} {Style.RESET_ALL}")
@@ -151,7 +215,9 @@ def main():
                    resume_ds_name=args.resume,
                    debug=args.debug,
                    distributed=not args.local,
-                   overwrite=args.overwrite)
+                   overwrite=args.overwrite,
+                   fit=args.fit,
+                   realpose=args.realpose) ############################
     for k, v in vars(cfg).items():
         print(k, v)
 

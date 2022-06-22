@@ -15,17 +15,18 @@ from focalpose.datasets.real_dataset import Pix3DDataset, CompCars3DDataset, Sta
 parser = argparse.ArgumentParser()
 parser.add_argument('--outliers', type=float, default=0.05,  help='Portion of points to remove from dataset as outliers.')
 
-def process(dataset, outliers):
+def fit(dataset, outliers):
     if outliers > 0:
-        d = process(dataset, 0)
-        zf = np.vstack([dataset.t[:,2], dataset.f]).T
+        d = fit(dataset, 0)
+        t = dataset.TCO[:,:3,3]
+        zf = np.vstack([t[:,2], dataset.f]).T
         dataset.index = dataset.index.drop(get_outliers(zf, outliers))
 
     d = dict()
-    R = dataset.R
-    t = dataset.t
+    mat = dataset.TCO
+    R = mat[:,:3,:3]
+    t = mat[:,:3,3]
     f = dataset.f
-    cam_poses = (-R@t[:, :, None]).squeeze()
 
     R_quat = np.array(list(  map(lambda x: Rotation.from_matrix(x).as_quat(), R)  ))
     bingham = BinghamDistribution.fit(R_quat)
@@ -36,17 +37,17 @@ def process(dataset, outliers):
 
     zf = np.vstack([t[:,2],f]).T
     logzf = np.log(zf)
-    logzf_mu = np.mean(logzf, axis=0)
-    logzf_cov = np.cov(logzf.T)
+    zf_log_mu = np.mean(logzf, axis=0)
+    zf_log_cov = np.cov(logzf.T)
 
-    d['bingham_z'] = bingham._param_z.tolist()
-    d['bingham_m'] = bingham._param_m.tolist()
+    d['rot_bingham_z'] = bingham._param_z.tolist()
+    d['rot_bingham_m'] = bingham._param_m.tolist()
 
     d['xy_mu']     = xy_mu.tolist()
     d['xy_cov']    = xy_cov.tolist()
 
-    d['logzf_mu']  = logzf_mu.tolist()
-    d['logzf_cov'] = logzf_cov.tolist()
+    d['zf_log_mu']  = zf_log_mu.tolist()
+    d['zf_log_cov'] = zf_log_cov.tolist()
 
     return d
 
@@ -65,19 +66,19 @@ if __name__ == '__main__':
     pix3d_categories = ['bed', 'chair', 'sofa', 'table']
     for category in pix3d_categories:
         dataset = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', category)
-        d = process(dataset, args.outliers)
+        d = fit(dataset, args.outliers)
         with open(LOCAL_DATA_DIR / 'pix3d' / f"{category}-fit.json", 'w') as f:
             f.write(json.dumps(d))
 
     # CompCars
     dataset = CompCars3DDataset(LOCAL_DATA_DIR / 'CompCars')
-    d = process(dataset, args.outliers)
+    d = fit(dataset, args.outliers)
     with open(LOCAL_DATA_DIR / 'CompCars' / "fit.json", 'w') as f:
         f.write(json.dumps(d))
 
     # StanfordCars
     dataset = StanfordCars3DDataset(LOCAL_DATA_DIR / 'StanfordCars')
-    d = process(dataset, args.outliers)
+    d = fit(dataset, args.outliers)
     with open(LOCAL_DATA_DIR / 'StanfordCars' / 'fit.json', 'w') as f:
         f.write(json.dumps(d))
         

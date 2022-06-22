@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -83,15 +81,20 @@ class Pix3DDataset:
         objects = dict(TWO=np.eye(4), name=name, scale=1, id_in_segm=1, bbox=np.array(entry['bbox']))
 
         return rgb, mask, dict(camera=camera, objects=[objects])
+    
+    @property
+    def TCO(self):
+        rot = self.R_pix3d.as_matrix() @ np.array(self.index['rot_mat'].to_list())
+        trans = self.R_pix3d.apply(np.array(self.index['trans_mat'].to_list()))
+        x = np.concatenate([rot, trans.reshape([-1,3,1])], axis=-1)
+        b = np.repeat([0,0,0,1], x.shape[0] ).reshape(4,-1).T.reshape((-1,1,4))
+
+        return np.concatenate([x,b], axis=1)
 
     @property
-    def R(self):
-        return self.R_pix3d.as_matrix() @ np.array(self.index['rot_mat'].to_list())
-    
-    @property
-    def t(self):
-        return self.R_pix3d.apply(np.array(self.index['trans_mat'].to_list()))
-    
+    def TWC(self):
+        return np.linalg.inv(self.TCO) #TODO
+
     @property
     def f(self):
         focal_length = np.array(self.index['focal_length'].to_list())
@@ -138,14 +141,15 @@ class StanfordCars3DDataset:
 
         return rgb, mask, dict(camera=camera, objects=[objects])
 
+
     @property
-    def R(self):
-        return np.array(self.index['TCO'].to_list())[:,:3,:3]
-    
+    def TCO(self):
+        return np.array(self.index['TCO'].to_list())
+
     @property
-    def t(self):
-        return np.array(self.index['TCO'].to_list())[:,:3,3]
-    
+    def TWC(self):
+        return np.linalg.inv(self.TCO) #TODO: do not use np.linalg.inv
+
     @property
     def f(self):
         return np.array(self.index['K'].to_list())[:,0,0]
@@ -187,14 +191,15 @@ class CompCars3DDataset:
 
         return rgb, mask, dict(camera=camera, objects=[objects])
 
+
     @property
-    def R(self):
-        return np.array(self.index['TCO'].to_list())[:,:3,:3]
-    
+    def TCO(self):
+        return np.array(self.index['TCO'].to_list())
+
     @property
-    def t(self):
-        return np.array(self.index['TCO'].to_list())[:,:3,3]
-    
+    def TWC(self):
+        return np.linalg.inv(self.TCO) #TODO
+
     @property
     def f(self):
         return np.array(self.index['K'].to_list())[:,0,0]
