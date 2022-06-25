@@ -6,10 +6,9 @@ from deep_bingham.bingham_distribution import BinghamDistribution
 from scipy.spatial.transform import Rotation
 
 from focalpose.simulator import Camera
-from focalpose.recording.bop_recording_scene import BopRecordingScene, SamplerError
-from focalpose.lib3d import Transform
+from focalpose.recording.bop_recording_scene import BopRecordingScene
 
-class BopRecordingSceneNonuniform(BopRecordingScene):
+class BopRecordingSceneParametric(BopRecordingScene):
     def __init__(self,
 
                  xy_mu,
@@ -40,11 +39,11 @@ class BopRecordingSceneNonuniform(BopRecordingScene):
             domain_randomization=domain_randomization,
             textures_on_objects=textures_on_objects,
             n_objects_interval=n_objects_interval,
-            #None, # objects_xyz_interval,
+            #objects_xyz_interval=objects_xyz_interval,
             proba_falling=proba_falling,
             resolution=resolution,
-            #None, # focal_interval,
-            #None, # camera_distance_interval,
+            #focal_interval=focal_interval,
+            #camera_distance_interval=camera_distance_interval,
             border_check=border_check,
             gpu_renderer=gpu_renderer,
             n_textures_cache=n_textures_cache,
@@ -65,8 +64,6 @@ class BopRecordingSceneNonuniform(BopRecordingScene):
         q = BinghamDistribution(np.array(self.rot_bingham_m), np.array(self.rot_bingham_z)).random_samples(1)
         R = Rotation.from_quat(q).as_matrix().reshape((3,3))
         t = np.array([[x,y,z]]).T
-        #TCO = np.vstack([ np.hstack([R,t]), np.array([[0,0,0,1]]) ])
-        #TWC = np.linalg.inv(TCO)
         TWC = np.vstack( [np.hstack([R.T, (-R.T@t).reshape(-1,1)]), [0,0,0,1]] )
 
         K = np.zeros((3, 3), dtype=np.float)
@@ -81,56 +78,9 @@ class BopRecordingSceneNonuniform(BopRecordingScene):
         cam.set_extrinsic_T(TWC)
         return cam
         
-    def camera_rand(self):
-        N = 0
-        valid = False
-        self.cam_obs = None
-        while not valid:
-            cam = self.sample_camera()
-            cam_obs_ = cam.get_state()
-
-            mask = cam_obs_['mask']
-            mask[mask == self.background._body_id] = 0
-            mask[mask == 255] = 0
-            uniqs = np.unique(cam_obs_['mask'])
-
-            valid = len(uniqs) == len(self.bodies) + 1
-            if valid and self.border_check:
-                for uniq in uniqs[uniqs > 0]:
-                    H, W = cam_obs_['mask'].shape
-                    ids = np.where(cam_obs_['mask'] == uniq)
-                    if ids[0].max() == H-1 or ids[0].min() == 0 or \
-                       ids[1].max() == W-1 or ids[1].min() == 0:
-                        valid = False
-            N += 1
-            if N >= 3:
-                raise SamplerError('Cannot sample valid camera configuration.')
-            self.cam_obs = cam_obs_
-
     def objects_pos_orn_rand(self):
         self.hide_plane()
         for body in self.bodies:
             pos = np.zeros(3)
             orn = pin.Quaternion().coeffs()
             body.pose = pos, orn
-    
-    def _full_rand(self,
-                   objects=True,
-                   objects_pos_orn=True,
-                   falling=False,
-                   background_pos_orn=True,
-                   camera=True,
-                   visuals=True):
-        if background_pos_orn:
-            self.background_pos_orn_rand()
-        if objects:
-            self.pick_rand_objects()
-        if visuals:
-            self.visuals_rand()
-        if objects_pos_orn:
-            if falling:
-                self.objects_pos_orn_rand_falling()
-            else:
-                self.objects_pos_orn_rand()
-        if camera:
-            self.camera_rand()
