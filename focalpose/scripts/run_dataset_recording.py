@@ -4,7 +4,6 @@ import json
 
 from focalpose.config import LOCAL_DATA_DIR
 from focalpose.recording.record_dataset import record_dataset
-from focalpose.datasets.real_dataset import Pix3DDataset, CompCars3DDataset, StanfordCars3DDataset
 
 def make_cfg(cfg_name,
              resume_ds_name='',
@@ -58,7 +57,6 @@ def make_cfg(cfg_name,
             urdf_ds='pix3d-sofa',
         )
         fit_file = LOCAL_DATA_DIR / 'pix3d' / 'sofa-fit.json'
-        real_dataset = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'sofa', True)
 
     elif cfg_name == 'pix3d-bed':
         n_frames = 1e6
@@ -70,7 +68,6 @@ def make_cfg(cfg_name,
             urdf_ds='pix3d-bed',
         )
         fit_file = LOCAL_DATA_DIR / 'pix3d' / 'bed-fit.json'
-        real_dataset = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'bed', True)
 
     elif cfg_name == 'pix3d-table':
         n_frames = 1e6
@@ -82,7 +79,6 @@ def make_cfg(cfg_name,
             urdf_ds='pix3d-table',
         )
         fit_file = LOCAL_DATA_DIR / 'pix3d' / 'table-fit.json'
-        real_dataset = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'table', True)
 
     elif 'pix3d-chair' in cfg_name:
         cfg.scene_kwargs['camera_distance_interval'] = (0.8, 3.4)
@@ -95,7 +91,6 @@ def make_cfg(cfg_name,
             urdf_ds=cfg_name,
         )
         fit_file = LOCAL_DATA_DIR / 'pix3d' / 'chair-fit.json'
-        real_dataset = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'chair', True)
 
     elif cfg_name == 'pix3d':
         n_frames = 1e6
@@ -121,7 +116,6 @@ def make_cfg(cfg_name,
             urdf_ds=cfg_name,
         )
         fit_file = LOCAL_DATA_DIR / 'StanfordCars' / 'fit.json'
-        real_dataset = StanfordCars3DDataset(LOCAL_DATA_DIR / 'StanfordCars', True)
         
     elif 'compcars' in cfg_name:
         n_frames = 100000
@@ -135,7 +129,6 @@ def make_cfg(cfg_name,
             urdf_ds=cfg_name,
         )
         fit_file = LOCAL_DATA_DIR / 'CompCars' / 'fit.json'
-        real_dataset = CompCars3DDataset(LOCAL_DATA_DIR / 'CompCars', True)
         
     elif resume_ds_name:
         pass
@@ -152,7 +145,6 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.pop('objects_xyz_interval')
         cfg.scene_kwargs.pop('camera_distance_interval')
         cfg.scene_kwargs.pop('focal_interval')
-        cfg.scene_kwargs['real_dataset'] = real_dataset
         
     elif pose == 'parametric':
         with open(fit_file) as f:
