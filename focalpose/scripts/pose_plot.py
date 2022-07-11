@@ -16,11 +16,13 @@ from focalpose.datasets.real_dataset import Pix3DDataset, CompCars3DDataset, Sta
 
 parser = argparse.ArgumentParser()
 parser.add_argument('dataset', default=None, help='{stanfordcars, compcars, pix3d-bed, pix3d-chair, pix3d-sofa, pix3d-table}')
-#parser.add_argument('--dataset',  type=str,   default=None, help='{stanfordcars, compcars, pix3d-{bed, chair, sofa, table} }')
+
 parser.add_argument('--outliers', type=float, default=0.05,  help='Portion of points to remove from dataset as outliers.')
+parser.add_argument('--overlay',  action='store_true', default=False, help='Overlay plots of real and fitted datasets.')
+
+parser.add_argument('--train',    action='store_true', default=False, help='Use test dataset.')
 parser.add_argument('--test',     action='store_true', default=False, help='Use test dataset.')
 parser.add_argument('--fit',      action='store_true', default=False, help='Plot samples from fitted distributions.')
-parser.add_argument('--overlay',  action='store_true', default=False, help='Overlay plots of real and fitted datasets.')
 
 parser.add_argument('--cam', action='store_true', default=False, help='Plot camera positions.')
 parser.add_argument('--t',   action='store_true', default=False, help='Plot translations vectors.')
@@ -30,7 +32,7 @@ parser.add_argument('--rz',  action='store_true', default=False, help='Plot rota
 parser.add_argument('--xy',  action='store_true', default=False, help='Plot x and y components of translation vectors.')
 parser.add_argument('--zf',  action='store_true', default=False, help='Plot graph focal lengths and z components of translation vectors.')
 
-parser.add_argument('--alpha', type=float, default=0.25, help="The alpha blending value of plot objects.")
+parser.add_argument('--alpha', type=float, default=0.4, help="The alpha blending value of plot objects.")
 
 
 pix3d_categories = ['bed', 'chair', 'sofa', 'table']
@@ -39,9 +41,8 @@ FIGSIZE_3D=(7,6)
 LEGEND_LOC='upper right'
 
 
-def process(dataset, outliers):
+def process(dataset, outliers, fit=True):
     if outliers > 0:
-        d = process(dataset, 0)
         t = dataset.TCO[:,:3,3]
         zf = np.vstack([t[:,2], dataset.f]).T
         dataset.index = dataset.index.drop(get_outliers(zf, outliers))
@@ -53,34 +54,30 @@ def process(dataset, outliers):
     f = dataset.f
     cam_poses = (-R@t[:, :, None]).squeeze()
 
-    R_quat = np.array(list(  map(lambda x: Rotation.from_matrix(x).as_quat(), R)  ))
-    bingham = BinghamDistribution.fit(R_quat)
-
     xy = t[:,:2]
     xy_mu = np.mean(xy, axis=0)
     xy_cov = np.cov(xy.T)
 
-    zf = np.vstack([t[:,2],f]).T
-    logzf = np.log(zf)
-    zf_log_mu = np.mean(logzf, axis=0)
-    zf_log_cov = np.cov(logzf.T)
-
     d['R']         = R
     d['t']         = t
-    d['cam_pos']   = cam_poses
-    d['R_quat']    = R_quat
-
-    #d['bingham']   = bingham
-    d['bingham_z'] = bingham._param_z
-    d['bingham_m'] = bingham._param_m
-
-    d['xy_mu']     = xy_mu
-    d['xy_cov']    = xy_cov
-
-    d['zf_log_mu']  = zf_log_mu
-    d['zf_log_cov'] = zf_log_cov
-
     d['f']         = f
+    d['cam_pos']   = cam_poses
+
+    if fit:
+        R_quat = np.array(list(  map(lambda x: Rotation.from_matrix(x).as_quat(), R)  ))
+        bingham = BinghamDistribution.fit(R_quat)
+        zf = np.vstack([t[:,2],f]).T
+        logzf = np.log(zf)
+        zf_log_mu = np.mean(logzf, axis=0)
+        zf_log_cov = np.cov(logzf.T)
+
+        d['bingham_z'] = bingham._param_z
+        d['bingham_m'] = bingham._param_m
+        d['xy_mu']     = xy_mu
+        d['xy_cov']    = xy_cov
+        d['zf_log_mu']  = zf_log_mu
+        d['zf_log_cov'] = zf_log_cov
+
     return d
 
 
@@ -89,14 +86,39 @@ def set_xyz_labels(ax, z=True):
     ax.set_ylabel('y')
     if z: ax.set_zlabel('z')
 
+def plot_cam_pos(d, ds_name, label, overlay, sample=False, ax=None):
+    if ax is None:  
+        fig = plt.figure(figsize=FIGSIZE_3D)
+        ax = plt.axes(projection='3d')
+        set_xyz_labels(ax)
+        fig.suptitle('Cam positions: ' + ds_name)
+        ax.scatter([0], [0], [0], c='r')
 
-def plot_cam_pos(pos, ds_name):
-    fig = plt.figure(figsize=FIGSIZE_3D)
-    ax = plt.axes(projection='3d')
-    fig.suptitle('Cam positions: ' + ds_name)
-    ax.scatter(pos[:,0], pos[:,1], pos[:,2], c='b')
-    ax.scatter([0], [0], [0], c='r')
-    set_xyz_labels(ax)
+    pos = d['cam_pos']
+
+    if sample:
+        xy_mu     = d['xy_mu']
+        xy_cov    = d['xy_cov']
+        bingham   = BinghamDistribution(d['bingham_m'], d['bingham_z'])
+        zf_log_mu  = d['zf_log_mu']
+        zf_log_cov = d['zf_log_cov']
+
+        R = np.array(list(map(lambda x: Rotation.from_quat(x).as_matrix(), bingham.random_samples(pos.shape[0]))))
+        xy = nr.multivariate_normal(xy_mu, xy_cov, size=pos.shape[0])
+        z = np.exp(nr.multivariate_normal(zf_log_mu, zf_log_cov, size=pos.shape[0]))[:,0]
+        t = np.hstack([xy,z.reshape(-1,1)])
+        samples = (-R@t[:, :, None]).squeeze()
+        ax.scatter(samples[:,0], samples[:,1], samples[:,2], label=label, alpha=args.alpha)
+    else:
+        ax.scatter(pos[:,0], pos[:,1], pos[:,2], label=label, alpha=args.alpha)
+
+    if not overlay:
+        ax.legend(loc=LEGEND_LOC)
+
+    return ax
+
+
+
 
 
 def plot_trans(trans, ds_name):
@@ -109,100 +131,104 @@ def plot_trans(trans, ds_name):
     ax.scatter([0], [0], [0], c='r')
 
 
-def plot_rot_axis(rot, axis, bingham, ds_name, overlay):
-    fig = plt.figure(figsize=FIGSIZE_3D)
-    ax = plt.axes(projection='3d')
-    ax.set_xlim(-1,1)
-    ax.set_ylim(-1,1)
-    ax.set_zlim(-1,1)
-    set_xyz_labels(ax)
-    ax.title.set_text('Rotations ('+ ('x' if axis==0 else 'y' if axis==1 else 'z') + '-axis): ' + ds_name)
-    
-    unit_vector = np.array([0,0,0])
-    unit_vector[axis] = 1
-    pts = rot @ unit_vector
-
-    if bingham is not None:
-        ax.scatter(pts[:,0], pts[:,1], pts[:,2], color='b', alpha=args.alpha, label='Real')
-        
-        sample_rot = np.array(list(map(lambda x: Rotation.from_quat(x).as_matrix(), bingham.random_samples(rot.shape[0]))))
-        sample_pts = sample_rot @ unit_vector
-        if overlay:
-            ax.scatter(sample_pts[:,0], sample_pts[:,1], sample_pts[:,2], color='r', alpha=args.alpha, label='Fitted')
-        else:
-            plot_rot_axis(sample_rot, axis, None, ds_name, True)
-    else:
-        if overlay: ax.scatter(pts[:,0], pts[:,1], pts[:,2], color='r', alpha=args.alpha, label='Fitted')
-        else:       ax.scatter(pts[:,0], pts[:,1], pts[:,2], color='b', alpha=args.alpha, label='Real')
-
-    ax.legend(loc=LEGEND_LOC)
 
 
-def plot_xy(xy, xy_mu, xy_cov, ds_name, overlay):
-    fig,ax = plt.subplots(figsize=FIGSIZE_2D)
-    set_xyz_labels(ax,z=False)
-    ax.set_title('x:y : ' + ds_name)
-    ax.add_patch(patches.Rectangle((-0.15, -0.15), 0.3, 0.3, alpha=args.alpha, color='k', label='FocalPose synt. data'))
-    
-    if xy_mu is not None:
-        ax.scatter(xy[:,0], xy[:,1], color='b', alpha=args.alpha, label='Real')
-        
-        samples = nr.multivariate_normal(xy_mu, xy_cov, size=xy.shape[0])
-        if overlay:
-            ax.scatter(samples[:,0], samples[:,1], color='r', alpha=args.alpha, label='Fitted')
-        else:
-            plot_xy(samples, None, None, ds_name, True)
-    else:
-        if overlay: ax.scatter(xy[:,0], xy[:,1], color='r', alpha=args.alpha, label='Fitted')
-        else:       ax.scatter(xy[:,0], xy[:,1], color='b', alpha=args.alpha, label='Real')
+def plot_rot_axis(d, axis, ds_name, label, overlay, sample=False, ax=None):
+    if ax is None:
+        fig = plt.figure(figsize=FIGSIZE_3D)
+        ax = plt.axes(projection='3d')
+        ax.set_xlim(-1,1)
+        ax.set_ylim(-1,1)
+        ax.set_zlim(-1,1)
+        set_xyz_labels(ax)
+        ax.title.set_text('Rotations ('+ ('x' if axis==0 else 'y' if axis==1 else 'z') + '-axis): ' + ds_name)
 
-    ax.legend(loc=LEGEND_LOC)
+    rot = d['R']
+    unit = np.array([0,0,0])
+    unit[axis] = 1
 
-
-def plot_zf(z, f, zf_log_mu, zf_log_cov, ds_name, overlay):
-    fig,ax = plt.subplots(figsize=FIGSIZE_2D)
-    ax.set_xlabel('z')
-    ax.set_ylabel('f')
-    ax.set_title('z:f : ' + ds_name)
-    
-    if ds_name == 'pix3d-chair':  z_interval = (0.8, 3.4)  
-    if ds_name == 'stanfordcars': z_interval = (0.8, 3.0)
-    if ds_name == 'compcars':     z_interval = (0.8, 3.0)
-    else:                         z_interval = (0.8, 2.4)
-    
-    ax.add_patch(patches.Rectangle((z_interval[0], 200), z_interval[1]-z_interval[0], 800, alpha=args.alpha, color='k', label='FocalPose synt. data'))
-
-    if zf_log_mu is not None:
-        ax.scatter(z, f, color='b', alpha=args.alpha, label='Real')
-        
-        samples = np.exp(nr.multivariate_normal(zf_log_mu, zf_log_cov, size=z.shape[0]))
-        if overlay:
-            ax.scatter(samples[:,0], samples[:,1], color='r', alpha=args.alpha, label='Fitted')
-        else:
-            plot_zf(samples[:,0], samples[:,1], None, None, ds_name, True)
-    else:
-        if overlay: ax.scatter(z, f, color='r', alpha=args.alpha, label='Fitted')
-        else:       ax.scatter(z, f, color='b', alpha=args.alpha, label='Real')
-
-    ax.legend(loc=LEGEND_LOC)
-
-
-def plot(args, d, ds_name):
-    bingham, xy_mu, xy_cov, zf_log_mu, zf_log_cov = None, None, None, None, None
-    if args.fit:
+    if sample:
         bingham   = BinghamDistribution(d['bingham_m'], d['bingham_z'])
+        sample_rot = np.array(list(map(lambda x: Rotation.from_quat(x).as_matrix(), bingham.random_samples(rot.shape[0]))))
+        pts = sample_rot @ unit
+        ax.scatter(pts[:,0], pts[:,1], pts[:,2], alpha=args.alpha, label=label)
+    else:
+        pts = rot @ unit
+        ax.scatter(pts[:,0], pts[:,1], pts[:,2], alpha=args.alpha, label=label)
+
+    if not overlay:
+        ax.legend(loc=LEGEND_LOC)
+
+    return ax
+
+
+def plot_xy(d, ds_name, label, overlay, sample=False, ax=None):
+    if ax is None:
+        fig,ax = plt.subplots(figsize=FIGSIZE_2D)
+        set_xyz_labels(ax,z=False)
+        ax.set_title('x:y : ' + ds_name)
+        ax.add_patch(patches.Rectangle((-0.15, -0.15), 0.3, 0.3, alpha=args.alpha, color='k', label='FocalPose synt. data'))
+
+    xy = d['t'][:,:2]
+    if sample:
         xy_mu     = d['xy_mu']
         xy_cov    = d['xy_cov']
+        samples = nr.multivariate_normal(xy_mu, xy_cov, size=xy.shape[0])
+        ax.scatter(samples[:,0], samples[:,1], alpha=args.alpha, label=label)
+    else:
+        ax.scatter(xy[:,0], xy[:,1], alpha=args.alpha, label=label)
+
+    if not overlay:
+        ax.legend(loc=LEGEND_LOC)
+
+    return ax
+
+
+def plot_zf(d, ds_name, label, overlay, sample=False, ax=None):
+    if ax is None:
+        fig,ax = plt.subplots(figsize=FIGSIZE_2D)
+        ax.set_xlabel('z')
+        ax.set_ylabel('f')
+        ax.set_title('z:f : ' + ds_name)
+
+        if ds_name == 'pix3d-chair':  z_interval = (0.8, 3.4)  
+        if ds_name == 'stanfordcars': z_interval = (0.8, 3.0)
+        if ds_name == 'compcars':     z_interval = (0.8, 3.0)
+        else:                         z_interval = (0.8, 2.4)
+        ax.add_patch(patches.Rectangle((z_interval[0], 200), z_interval[1]-z_interval[0], 800, alpha=args.alpha, color='k', label='FocalPose synt. data'))
+
+    z = d['t'][:,2]
+    f = d['f']
+
+    if sample:
         zf_log_mu  = d['zf_log_mu']
         zf_log_cov = d['zf_log_cov']
+        samples = np.exp(nr.multivariate_normal(zf_log_mu, zf_log_cov, size=z.shape[0]))
+        ax.scatter(samples[:,0], samples[:,1], alpha=args.alpha, label=label)
+    else:
+        ax.scatter(z, f, alpha=args.alpha, label=label)
 
-    if args.zf:  plot_zf(d['t'][:,2], d['f'], zf_log_mu, zf_log_cov, ds_name, args.overlay)
-    if args.xy:  plot_xy(d['t'][:,:2], xy_mu, xy_cov, ds_name, args.overlay)
-    if args.cam: plot_cam_pos(d['cam_pos'], ds_name)
-    if args.t:   plot_trans(d['t'], ds_name)
-    if args.rx:  plot_rot_axis(d['R'], 0, bingham, ds_name, args.overlay)
-    if args.ry:  plot_rot_axis(d['R'], 1, bingham, ds_name, args.overlay)
-    if args.rz:  plot_rot_axis(d['R'], 2, bingham, ds_name, args.overlay)
+    if not overlay:
+        ax.legend(loc=LEGEND_LOC)
+
+    return ax
+
+
+
+def plot(args, ds_name, dict_train, dict_test):
+    for plot, plot_funct in [(args.zf, plot_zf), (args.xy, plot_xy), (args.cam, plot_cam_pos)]:
+        if plot:
+            if args.train:      ax = plot_funct(dict_train, ds_name, 'train',      args.overlay)
+            if args.fit:        ax = plot_funct(dict_train, ds_name, 'parametric', args.overlay, ax=ax, sample=True)
+            if args.test:       ax = plot_funct(dict_test,  ds_name, 'test',       False,        ax=ax)
+
+    for axis, plot_rot in enumerate([args.rx, args.ry, args.rz]):
+        if plot_rot:
+            if args.train:  ax = plot_rot_axis(dict_train, axis, ds_name, 'train',       args.overlay)
+            if args.fit:    ax = plot_rot_axis(dict_train, axis, ds_name, 'parameteric', args.overlay, ax=ax, sample=True)
+            if args.test:   ax = plot_rot_axis(dict_test,  axis, ds_name, 'test',        False,        ax=ax)
+
+    if args.t:   plot_trans(dict_train['t'], ds_name)
     plt.show()
 
 
@@ -213,33 +239,43 @@ def get_outliers(data, q=0.05):
     return np.argpartition(-dist, n)[:n]                                          
 
 
+
+
 if __name__ == '__main__':
     args = parser.parse_args([] if '__file__' not in globals() else None)
-    if not args.fit and args.overlay:
-        print("Error: cannot overlay plots if --fit=False")
-        parser.print_help()
-        exit(1)
 
+    dict_test = None
     if args.dataset[:5] == 'pix3d':
         c = args.dataset[6:]
         categories = pix3d_categories if c == '' else c.split(',') 
 
         for category in categories:
-            dataset = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', category, not args.test)
-            d = process(dataset, args.outliers)
-            plot(args, d, 'pix3d-'+category)
+            ds_train = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', category, train=True)
+            dict_train = process(ds_train, args.outliers)
+
+            if args.test:
+                ds_test = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', category, train=False)
+                dict_test = process(ds_test, 0, fit=False)
+            plot(args, 'pix3d-'+category, dict_train, dict_test)
 
     elif args.dataset == 'compcars':
-        dataset = CompCars3DDataset(LOCAL_DATA_DIR / 'CompCars', not args.test)
-        d = process(dataset, args.outliers)
-        plot(args, d, 'CompCars')
+        ds_train = CompCars3DDataset(LOCAL_DATA_DIR / 'CompCars', train=True)
+        dict_train = process(ds_train, args.outliers)
+
+        if args.test:
+                ds_test = CompCars3DDataset(LOCAL_DATA_DIR / 'CompCars', train=False)
+                dict_test = process(ds_test, 0, fit=False)
+        plot(args, 'CompCars', dict_train, dict_test)
 
     elif args.dataset == 'stanfordcars':
-        dataset = StanfordCars3DDataset(LOCAL_DATA_DIR / 'StanfordCars', not args.test)
-        d = process(dataset, args.outliers)
-        plot(args, d, 'StanfordCars')
+        ds_train = StanfordCars3DDataset(LOCAL_DATA_DIR / 'StanfordCars', train=True)
+        dict_train = process(ds_train, args.outliers)
+
+        if args.test:
+                ds_test = StanfordCars3DDataset(LOCAL_DATA_DIR / 'StanfordCars', train=False)
+                dict_test = process(ds_test, 0, fit=False)
+        plot(args, 'StanfordCars', dict_train, dict_test)
 
     else:
         parser.print_help()
         exit(1)
-    

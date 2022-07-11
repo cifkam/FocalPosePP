@@ -4,12 +4,11 @@ import pinocchio as pin
 
 from focalpose.simulator import Camera
 from focalpose.recording.bop_recording_scene import BopRecordingScene
+from focalpose.config import LOCAL_DATA_DIR
+from focalpose.datasets.real_dataset import Pix3DDataset, CompCars3DDataset, StanfordCars3DDataset
 
 class BopRecordingSceneRealPose(BopRecordingScene):
     def __init__(self,
-
-                 real_dataset,
-
                  urdf_ds='ycbv',
                  texture_ds='shapenet',
                  domain_randomization=True,
@@ -41,7 +40,18 @@ class BopRecordingSceneRealPose(BopRecordingScene):
             n_textures_cache=n_textures_cache,
             seed=seed)
 
-        self.real_dataset = real_dataset
+        if urdf_ds == 'pix3d-sofa':
+            self.real_dataset = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'sofa')
+        elif urdf_ds == 'pix3d-bed':
+            self.real_dataset = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'bed')
+        elif urdf_ds == 'pix3d-table':
+            self.real_dataset = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'table')
+        elif 'pix3d-chair' in urdf_ds:
+            self.real_dataset = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'chair')
+        elif 'stanfordcars' in urdf_ds:
+            self.real_dataset = StanfordCars3DDataset(LOCAL_DATA_DIR / 'StanfordCars')
+        elif 'compcars' in urdf_ds:
+            self.real_dataset = CompCars3DDataset(LOCAL_DATA_DIR / 'CompCars')
 
     def sample_camera(self):
         i = nr.randint(0, len(self.real_dataset))
