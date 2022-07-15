@@ -6,15 +6,25 @@ import os
 import numpy as np
 
 parser = argparse.ArgumentParser()
-parser.add_argument('dirs', default=None, help='Grouped directories with results to compare (comma separated)')
+parser.add_argument('dirs', default=None, help='Grouped directories with results to compare (comma-separated)')
+parser.add_argument('--labels', default=None, help='Comma-separated dir labels')
 
-ds_names = ['compcars3d', 'stanfordcars3d', 'pix3d-bed', 'pix3d-chair', 'pix3d-sofa', 'pix3d-table']
+parser.add_argument('--datasets', default=None, help='Comma-separated dataset names')
+
+all_datasets = ['compcars3d', 'stanfordcars3d', 'pix3d-bed', 'pix3d-chair', 'pix3d-sofa', 'pix3d-table']
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 
 if __name__ == '__main__':
     args = parser.parse_args([] if '__file__' not in globals() else None)
-    dirs = args.dirs.split(',')
+    dirs = list(filter(None, args.dirs.split(',')))
+    ds_names = all_datasets if args.datasets is None else list(filter(None, args.datasets.split(',')))
+    n_datasets = len(ds_names)
+    labels = ds_names  if  args.labels is None  else  list(filter(None, args.labels.split(',')))
+    if len(labels) != len(dirs):
+        raise Exception(f"Number of dirs {(len(dirs))} and labels ({len(labels)}) does not match.")
+
+
 
     # Load all results
     results = dict()
@@ -23,6 +33,8 @@ if __name__ == '__main__':
 
         for ds in ds_names:
             ds_dir = next((subdir for subdir in os.listdir(RESULTS_DIR / dir) if ds in subdir), None)
+            if ds_dir is None:
+                raise Exception(f"'{dir}' does not contain directory for '{ds}'.")
             with open(RESULTS_DIR / dir / ds_dir / 'results.yaml') as f:
                 results[dir][ds] = yaml.safe_load(f)
 
@@ -33,20 +45,22 @@ if __name__ == '__main__':
     # Plotting
     width = 0.5
     for key in keys:
-        fig, axs = plt.subplots(ncols=3, nrows=2, figsize=(15,10))
-        axs = axs.reshape(-1)
+        nrows = (n_datasets-1)//3+1
+        ncols = (n_datasets-1)%3+1
+        fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(5*ncols,5*nrows))
+        if n_datasets == 1:
+            axs = np.array([axs])
+        else:
+            axs = axs.reshape(-1)
 
         ymin = float('inf')
         ymax = float('-inf')
-        for i in range(6):
-
+        for i in range(n_datasets):
             ax = axs[i]
             ds = ds_names[i]
 
-            n = len(dirs)
-
             ys = [results[dir][ds][key] for dir in dirs]
-            bars = ax.bar(dirs, ys, color=colors)
+            bars = ax.bar(labels, ys, color=colors)
             ymin = min(np.min(ys), ymin)
             ymax = max(np.max(ys), ymax)
 
