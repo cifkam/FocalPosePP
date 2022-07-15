@@ -67,7 +67,6 @@ class BopRecordingScene(BaseScene):
             self.background = Body.load(cage_path, client_id=self.client_id, scale=3.0)
         else:
             self.background = Body(0)
-        print(self.background.body_id)
 
     def load_plane(self):
         plane_path = Path(ASSET_DIR / 'plane' / 'plane.urdf').as_posix()
