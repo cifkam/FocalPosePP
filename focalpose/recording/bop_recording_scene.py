@@ -20,7 +20,7 @@ class BopRecordingScene(BaseScene):
                  urdf_ds='ycbv',
                  texture_ds='shapenet',
                  domain_randomization=True,
-                 background_cage=True,
+                 background_textures=True,
                  textures_on_objects=False,
                  n_objects_interval=(1, 1),
                  objects_xyz_interval=((0.0, -0.5, -0.15), (1.0, 0.5, 0.15)),
@@ -46,7 +46,7 @@ class BopRecordingScene(BaseScene):
         self.texture_ds = make_texture_dataset(texture_ds)
         self.n_textures_cache = min(n_textures_cache, len(self.texture_ds))
         self.domain_randomization = domain_randomization
-        self.background_cage = background_cage
+        self.background_textures = background_textures
         self.textures_on_objects = textures_on_objects
 
         # Camera
@@ -62,7 +62,7 @@ class BopRecordingScene(BaseScene):
         self.seed = seed
 
     def load_background(self):
-        if self.background_cage:
+        if self.background_textures:
             cage_path = Path(ASSET_DIR / 'cage' / 'cage.urdf').as_posix()
             self.background = Body.load(cage_path, client_id=self.client_id, scale=3.0)
         else:
@@ -73,9 +73,10 @@ class BopRecordingScene(BaseScene):
         self.plane = Body.load(plane_path, client_id=self.client_id, scale=2.0)
 
     def background_pos_orn_rand(self):
-        pos = self.np_random.uniform(np.ones(3) * -1, np.ones(3))
-        orn = pin.Quaternion(pin.SE3.Random().rotation).coeffs()
-        self.background.pose = pos, orn
+        if self.background_textures:
+            pos = self.np_random.uniform(np.ones(3) * -1, np.ones(3))
+            orn = pin.Quaternion(pin.SE3.Random().rotation).coeffs()
+            self.background.pose = pos, orn
 
     def show_plane(self):
         self.plane.pose = (0, 0, 0), (0, 0, 0, 1)
@@ -113,7 +114,7 @@ class BopRecordingScene(BaseScene):
         self.bodies = self.body_cache.get_bodies_by_ids(ids)
 
     def visuals_rand(self):
-        bodies = [self.background] + [self.plane]
+        bodies = [self.background, self.plane] if self.background_textures else [self.plane]
         if self.textures_on_objects and self.np_random.rand() > 0.9:
             bodies = self.bodies + bodies
         for body in bodies:
