@@ -160,6 +160,13 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs['zf_log_cov'] = fit_json['zf_log_cov']
         cfg.scene_kwargs['rot_bingham_z'] = fit_json['rot_bingham_z']
         cfg.scene_kwargs['rot_bingham_m'] = fit_json['rot_bingham_m']
+
+    elif pose == 'nonparametric':
+        cfg.scene_cls = 'focalpose.recording.bop_recording_scene_nonparametric.BopRecordingSceneNonparametric'
+        cfg.scene_kwargs.pop('objects_xyz_interval')
+        cfg.scene_kwargs.pop('camera_distance_interval')
+        cfg.scene_kwargs.pop('focal_interval')
+
     else:
         raise ValueError('Unknown pose mode')
         
@@ -188,7 +195,7 @@ def main():
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--local', action='store_true')
     parser.add_argument('--overwrite', action='store_true')
-    parser.add_argument('--pose', default='uniform', type=str, help="{ uniform | parametric | real }")
+    parser.add_argument('--pose', default='uniform', type=str, choices=['uniform', 'real', 'parametric', 'nonparametric'])
 
     args = parser.parse_args()
 
