@@ -29,7 +29,7 @@ def prepare(ds_dir):
         TCO = np.linalg.inv(cam['TWC'])
         K = cam['K']
         rows.append({'K':K, 'TCO':TCO})
-        #rows.append(ds[i][2])
+
 
     df = pd.DataFrame(rows)
     df.to_pickle(filename)

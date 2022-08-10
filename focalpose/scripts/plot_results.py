@@ -20,7 +20,7 @@ if __name__ == '__main__':
     dirs = list(filter(None, args.dirs.split(',')))
     ds_names = all_datasets if args.datasets is None else list(filter(None, args.datasets.split(',')))
     n_datasets = len(ds_names)
-    labels = ds_names  if  args.labels is None  else  list(filter(None, args.labels.split(',')))
+    labels = dirs  if  args.labels is None  else  list(filter(None, args.labels.split(',')))
     if len(labels) != len(dirs):
         raise Exception(f"Number of dirs {(len(dirs))} and labels ({len(labels)}) does not match.")
 
