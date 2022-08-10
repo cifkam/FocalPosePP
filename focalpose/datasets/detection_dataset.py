@@ -28,7 +28,7 @@ class DetectionDataset(torch.utils.data.Dataset):
 
         self.background_augmentation = background_augmentation
         self.background_augmentations = VOCBackgroundAugmentation(
-            voc_root=LOCAL_DATA_DIR / 'VOCdevkit/VOC2012', p=0.3)
+            voc_root=LOCAL_DATA_DIR / 'VOCdevkit/VOC2012', p_real=0.3, p_synt=0.3)
 
         self.rgb_augmentation = rgb_augmentation
         self.rgb_augmentations = [
