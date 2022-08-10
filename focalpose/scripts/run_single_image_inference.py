@@ -3,6 +3,7 @@ import torch
 import argparse
 import torchvision
 import numpy as np
+from pathlib import Path
 
 from tqdm import tqdm
 from torch.backends import cudnn
@@ -335,6 +336,8 @@ if __name__ == '__main__':
     parser.add_argument('--topk', default=15, type=int)
     args = parser.parse_args()
     cfg = argparse.ArgumentParser('').parse_args([])
+
+    assert  Path(args.img).is_file()
 
     assign_gpu()
 
