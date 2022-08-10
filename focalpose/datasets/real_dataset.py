@@ -80,7 +80,7 @@ class Pix3DDataset:
         camera = dict(TWC=TWC, K=K, resolution=resolution)
         objects = dict(TWO=np.eye(4), name=name, scale=1, id_in_segm=1, bbox=np.array(entry['bbox']))
 
-        return rgb, mask, dict(camera=camera, objects=[objects])
+        return rgb, mask, dict(camera=camera, objects=[objects], is_real=True)
     
     @property
     def TCO(self):
@@ -139,7 +139,7 @@ class StanfordCars3DDataset:
         camera = dict(TWC=np.linalg.inv(TCO), K=K, resolution=rgb.shape[:2])
         objects = dict(TWO=np.eye(4), name=name, scale=1, id_in_segm=1, bbox=bbox)
 
-        return rgb, mask, dict(camera=camera, objects=[objects])
+        return rgb, mask, dict(camera=camera, objects=[objects], is_real=True)
 
 
     @property
@@ -189,7 +189,7 @@ class CompCars3DDataset:
         camera = dict(TWC=np.linalg.inv(TCO), K=K, resolution=rgb.shape[:2])
         objects = dict(TWO=np.eye(4), name=name, scale=1, id_in_segm=1, bbox=bbox)
 
-        return rgb, mask, dict(camera=camera, objects=[objects])
+        return rgb, mask, dict(camera=camera, objects=[objects], is_real=True)
 
 
     @property

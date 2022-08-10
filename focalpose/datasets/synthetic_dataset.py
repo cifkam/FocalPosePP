@@ -58,5 +58,5 @@ class SyntheticSceneDataset:
         for obj in objects:
             if obj['id_in_segm'] in mask_uniqs:
                 obj['bbox'] = dets_gt[obj['id_in_segm']].numpy()
-        state = dict(camera=cam, objects=objects, frame_info=self.frame_index.iloc[idx].to_dict())
+        state = dict(camera=cam, objects=objects, frame_info=self.frame_index.iloc[idx].to_dict(), is_real=False)
         return rgb, mask, state

@@ -105,15 +105,16 @@ class GrayScale(PillowRGBAugmentation):
 
 
 class BackgroundAugmentation:
-    def __init__(self, image_dataset, p):
+    def __init__(self, image_dataset, p_real, p_synt):
         self.image_dataset = image_dataset
-        self.p = p
+        self.p_real = p_real
+        self.p_synt = p_synt
 
     def get_bg_image(self, idx):
         return self.image_dataset[idx]
 
     def __call__(self, im, mask, obs):
-        if random.random() <= self.p:
+        if (obs['is_real'] and random.random() <= self.p_real) or (not obs['is_real'] and random.random() <= self.p_synt):
             im = to_torch_uint8(im)
             mask = to_torch_uint8(mask)
             h, w, c = im.shape
@@ -126,9 +127,9 @@ class BackgroundAugmentation:
 
 
 class VOCBackgroundAugmentation(BackgroundAugmentation):
-    def __init__(self, voc_root, p=0.3):
+    def __init__(self, voc_root, p_real=0.3, p_synt=0.3):
         image_dataset = ImageFolder(voc_root)
-        super().__init__(image_dataset=image_dataset, p=p)
+        super().__init__(image_dataset=image_dataset, p_real=p_real, p_synt=p_synt)
 
     def get_bg_image(self, idx):
         return self.image_dataset[idx][0]
