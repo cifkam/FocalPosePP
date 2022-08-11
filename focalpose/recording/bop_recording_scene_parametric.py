@@ -1,22 +1,20 @@
 import numpy as np
-import numpy.random as nr
 import pinocchio as pin
+from scipy.spatial.transform import Rotation
 
 from deep_bingham.bingham_distribution import BinghamDistribution
-from scipy.spatial.transform import Rotation
 
 from focalpose.simulator import Camera
 from focalpose.recording.bop_recording_scene import BopRecordingScene
+from focalpose.config import LOCAL_DATA_DIR
+from focalpose.datasets.real_dataset import Pix3DDataset, CompCars3DDataset, StanfordCars3DDataset
+from focalpose.fitting.parametric_model import ParametricModel
+from focalpose.fitting.fitting import get_outliers
 
 class BopRecordingSceneParametric(BopRecordingScene):
     def __init__(self,
-
-                 xy_mu,
-                 xy_cov,
-                 zf_log_mu,
-                 zf_log_cov,
-                 rot_bingham_z,
-                 rot_bingham_m,
+                 params=None,
+                 outliers = 0.05,
                  
                  urdf_ds='ycbv',
                  texture_ds='shapenet',
@@ -52,21 +50,39 @@ class BopRecordingSceneParametric(BopRecordingScene):
             seed=seed)
 
         # Camera params
-        self.xy_mu = xy_mu
-        self.xy_cov = xy_cov
-        self.zf_log_mu = zf_log_mu
-        self.zf_log_cov = zf_log_cov
-        self.rot_bingham_z = rot_bingham_z
-        self.rot_bingham_m = rot_bingham_m
+        if params is None:
+            if urdf_ds == 'pix3d-sofa':
+                real_dataset = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'sofa')
+            elif urdf_ds == 'pix3d-bed':
+                real_dataset = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'bed')
+            elif urdf_ds == 'pix3d-table':
+                real_dataset = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'table')
+            elif 'pix3d-chair' in urdf_ds:
+                real_dataset = Pix3DDataset(LOCAL_DATA_DIR / 'pix3d', 'chair')
+            elif 'stanfordcars' in urdf_ds:
+                real_dataset = StanfordCars3DDataset(LOCAL_DATA_DIR / 'StanfordCars')
+            elif 'compcars' in urdf_ds:
+                real_dataset = CompCars3DDataset(LOCAL_DATA_DIR / 'CompCars')
+            
+            if outliers > 0:
+                t = real_dataset.TCO[:,:3,3]
+                zf = np.vstack([t[:,2], real_dataset.f]).T
+                real_dataset.index = real_dataset.index.drop(get_outliers(zf, outliers))
+
+            self.parametric_model = ParametricModel.fit(real_dataset)
+        else:
+            self.parametric_model = ParametricModel(
+                params['xy_mu'],
+                params['xy_cov'],
+                params['zf_log_mu'],
+                params['zf_log_cov'], 
+                params['rot_bingham_z'],
+                params['rot_bingham_m'])
 
     def sample_camera(self):
-        x,y = nr.multivariate_normal(self.xy_mu, self.xy_cov)
-        z,f = np.exp( nr.multivariate_normal(self.zf_log_mu, self.zf_log_cov) )
-
-        q = BinghamDistribution(np.array(self.rot_bingham_m), np.array(self.rot_bingham_z)).random_samples(1)
-        R = Rotation.from_quat(q).as_matrix().reshape((3,3))
-        t = np.array([[x,y,z]]).T
-        TWC = np.vstack( [np.hstack([R.T, (-R.T@t).reshape(-1,1)]), [0,0,0,1]] )
+        R,t,f = self.parametric_model.sample()
+        Rt = np.hstack([R,t.reshape(-1,1)])
+        TWC = np.vstack([ Rt , [0,0,0,1] ])
 
         K = np.zeros((3, 3), dtype=np.float)
         W, H = max(self.resolution), min(self.resolution)

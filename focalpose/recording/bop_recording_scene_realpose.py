@@ -6,6 +6,7 @@ from focalpose.simulator import Camera
 from focalpose.recording.bop_recording_scene import BopRecordingScene
 from focalpose.config import LOCAL_DATA_DIR
 from focalpose.datasets.real_dataset import Pix3DDataset, CompCars3DDataset, StanfordCars3DDataset
+from focalpose.fitting.fitting import get_outliers
 
 class BopRecordingSceneRealPose(BopRecordingScene):
     def __init__(self,
@@ -60,7 +61,7 @@ class BopRecordingSceneRealPose(BopRecordingScene):
         if outliers > 0:
             t = self.real_dataset.TCO[:,:3,3]
             zf = np.vstack([t[:,2], self.real_dataset.f]).T
-            self.real_dataset.index = self.real_dataset.index.drop(BopRecordingSceneRealPose.get_outliers(zf, outliers))
+            self.real_dataset.index = self.real_dataset.index.drop(get_outliers(zf, outliers))
 
     def sample_camera(self):
         i = nr.randint(0, len(self.real_dataset))
@@ -86,9 +87,3 @@ class BopRecordingSceneRealPose(BopRecordingScene):
             pos = np.zeros(3)
             orn = pin.Quaternion().coeffs()
             body.pose = pos, orn
-
-    def get_outliers(data, q=0.05):
-        med = np.median(data, axis=0)
-        dist = np.sqrt(np.sum((data - med)**2, axis=-1))
-        n = int(data.shape[0]*q)
-        return np.argpartition(-dist, n)[:n]           
