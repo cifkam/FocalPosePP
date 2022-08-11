@@ -35,7 +35,7 @@ def make_cfg(cfg_name,
         gpu_renderer=True,
         texture_ds='shapenet',
         domain_randomization=True,
-        background_textures=False,
+        background_textures=True,
         n_objects_interval=(1, 1),
         proba_falling=0.0,
         border_check=True,
@@ -140,35 +140,19 @@ def make_cfg(cfg_name,
     
     if pose == 'uniform':
         pass
-
-    elif pose == 'real':
-        cfg.scene_cls = 'focalpose.recording.bop_recording_scene_realpose.BopRecordingSceneRealPose'
-        cfg.scene_kwargs.pop('objects_xyz_interval')
-        cfg.scene_kwargs.pop('camera_distance_interval')
-        cfg.scene_kwargs.pop('focal_interval')
-        
-    elif pose == 'parametric':
-        with open(fit_file) as f:
-                fit_json = json.loads(f.read())
-        cfg.scene_cls = 'focalpose.recording.bop_recording_scene_parametric.BopRecordingSceneParametric'
-        cfg.scene_kwargs.pop('objects_xyz_interval')
-        cfg.scene_kwargs.pop('camera_distance_interval')
-        cfg.scene_kwargs.pop('focal_interval')
-        cfg.scene_kwargs['xy_mu'] = fit_json['xy_mu']
-        cfg.scene_kwargs['xy_cov'] = fit_json['xy_cov']
-        cfg.scene_kwargs['zf_log_mu'] = fit_json['zf_log_mu']
-        cfg.scene_kwargs['zf_log_cov'] = fit_json['zf_log_cov']
-        cfg.scene_kwargs['rot_bingham_z'] = fit_json['rot_bingham_z']
-        cfg.scene_kwargs['rot_bingham_m'] = fit_json['rot_bingham_m']
-
-    elif pose == 'nonparametric':
-        cfg.scene_cls = 'focalpose.recording.bop_recording_scene_nonparametric.BopRecordingSceneNonparametric'
-        cfg.scene_kwargs.pop('objects_xyz_interval')
-        cfg.scene_kwargs.pop('camera_distance_interval')
-        cfg.scene_kwargs.pop('focal_interval')
-
     else:
-        raise ValueError('Unknown pose mode')
+        cfg.scene_kwargs.pop('objects_xyz_interval')
+        cfg.scene_kwargs.pop('camera_distance_interval')
+        cfg.scene_kwargs.pop('focal_interval')
+
+        if pose == 'parametric':
+            cfg.scene_cls = 'focalpose.recording.bop_recording_scene_parametric.BopRecordingSceneParametric'
+        elif pose == 'nonparametric':
+            cfg.scene_cls = 'focalpose.recording.bop_recording_scene_nonparametric.BopRecordingSceneNonparametric'
+        elif pose == 'real':
+            cfg.scene_cls = 'focalpose.recording.bop_recording_scene_realpose.BopRecordingSceneRealPose'
+        else:
+            raise ValueError('Unknown pose mode')
         
 
     if debug:

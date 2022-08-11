@@ -12,6 +12,9 @@ from scipy.spatial.transform import Rotation
 from deep_bingham.bingham_distribution import BinghamDistribution
 from focalpose.config import LOCAL_DATA_DIR, SYNT_DS_DIR
 from focalpose.datasets.real_dataset import Pix3DDataset, CompCars3DDataset, StanfordCars3DDataset
+from focalpose.fitting.nonparametric_model import NonparametricModel
+from focalpose.fitting.parametric_model import ParametricModel
+from focalpose.fitting.fitting import get_outliers
 
 parser = argparse.ArgumentParser()
 parser.add_argument('dataset', default=None, help='{stanfordcars3d, compcars3d, pix3d-bed, pix3d-chair, pix3d-sofa, pix3d-table}')
@@ -48,63 +51,50 @@ def process_synts(dirs, n_samples):
         df = pd.read_pickle(SYNT_DS_DIR / dir / 'camera.pkl')
         df = df.sample(n_samples*3)
         data = dict()
-        data['TCO'] = np.array(df['TCO'].to_list())
+
+        # invert TCO to TWC
+        TCO = np.array(df['TCO'].to_list())
+        R = TCO[:,:3,:3]
+        t = TCO[:,:3,3]
+        R_T = np.transpose(R,axes=(0,2,1))
+        t = (-R_T@t[:, :, None]).squeeze()
+        R = R_T
+        data['TWC'] =  np.dstack([
+            np.pad(R,[(0,0),(0,1),(0,0)]),
+            np.pad(t, [(0,0),(0,1)], constant_values=1).reshape(-1,4,1)
+        ])
+
         data['f'] = np.array(df['K'].to_list())[:,0,0]
-        synts.append((dir,process(data, fit=[])))
+        synts.append((dir,process(data)))
     return synts
     
 def process_real(dataset, outliers=0.0, fit=[]):
     if outliers > 0:
-        t = dataset.TCO[:,:3,3]
+        t = dataset.TWC[:,:3,3]
         zf = np.vstack([t[:,2], dataset.f]).T
         dataset.index = dataset.index.drop(get_outliers(zf, outliers))
 
     data = dict()
-    data['TCO'] = dataset.TCO
+    data['TWC'] = dataset.TWC
     data['f'] = dataset.f
-    return process(data, fit)
 
-def process(data, fit=[]):
-    mat = data['TCO']
+    processed = process(data)
+    if 'param' in fit:    processed['parametric_model'] = ParametricModel.fit(dataset)
+    if 'nonparam' in fit: processed['nonparametric_model'] = NonparametricModel.fit(dataset)
+    return processed
+
+def process(data):
+    mat = data['TWC']
     R = mat[:,:3,:3]
     t = mat[:,:3, 3]
     f = data['f']
     cam_poses = (-R@t[:, :, None]).squeeze()
-
-    xy = t[:,:2]
-    xy_mu = np.mean(xy, axis=0)
-    xy_cov = np.cov(xy.T)
-    zf = np.vstack([t[:,2],f]).T
 
     processed = dict()
     processed['R']         = R
     processed['t']         = t
     processed['f']         = f
     processed['cam_pos']   = cam_poses
-
-    if 'param' in fit:
-        R_quat = np.array(list(  map(lambda x: Rotation.from_matrix(x).as_quat(), R)  ))
-        bingham = BinghamDistribution.fit(R_quat)
-        logzf = np.log(zf)
-        zf_log_mu = np.mean(logzf, axis=0)
-        zf_log_cov = np.cov(logzf.T)
-        processed['bingham_z'] = bingham._param_z
-        processed['bingham_m'] = bingham._param_m
-        processed['xy_mu']     = xy_mu
-        processed['xy_cov']    = xy_cov
-        processed['zf_log_mu']  = zf_log_mu
-        processed['zf_log_cov'] = zf_log_cov
-        
-    if 'nonparam' in fit:
-        q = 98
-        delta_x, delta_y = get_delta_nonparam(xy, q)
-        delta_z, delta_f = get_delta_nonparam(zf, q)
-        delta_R = get_delta_nonparam_rot(R, q)
-        processed['delta_x'] = delta_x
-        processed['delta_y'] = delta_y
-        processed['delta_z'] = delta_z
-        processed['delta_f'] = delta_f
-        processed['delta_R'] = delta_R
 
     return processed
 
@@ -126,36 +116,17 @@ def plot_cam(d, ds_name, label, separate, sample=None, ax=None):
     n_samples = pos.shape[0]
 
     if sample == 'param':
-        xy_mu     = d['xy_mu']
-        xy_cov    = d['xy_cov']
-        zf_log_mu  = d['zf_log_mu']
-        zf_log_cov = d['zf_log_cov']
-        bingham   = BinghamDistribution(d['bingham_m'], d['bingham_z'])
-        R = np.array(list(map(lambda x: Rotation.from_quat(x).as_matrix(), bingham.random_samples(n_samples))))
-        xy = nr.multivariate_normal(xy_mu, xy_cov, size=n_samples)
-        z = np.exp(nr.multivariate_normal(zf_log_mu, zf_log_cov, size=n_samples))[:,0]
-        t = np.hstack([xy,z.reshape(-1,1)])
+        R,t,_ = d['parametric_model'].sample_n(n_samples)
         pos = (-R@t[:, :, None]).squeeze()
-
     elif sample == 'nonparam':
-        indices = np.random.choice(n_samples, size=n_samples)
-        delta_R = sample_from_unit_sphere(3,n_samples) * d['delta_R']
-        delta_R = np.array(list(map(lambda x: Rotation.from_rotvec(x).as_matrix(), delta_R)))
-        R = d['R'][indices] @ delta_R
-        delta_xy = sample_from_unit_sphere(2,n_samples) * np.array([d['delta_x'],d['delta_y']])
-        delta_z = ( sample_from_unit_sphere(2,n_samples) * np.array([d['delta_z'],d['delta_f']]) )[:,0].reshape((-1,1))
-        delta_t = np.hstack([delta_xy, delta_z])
-        t = d['t'][indices] + delta_t
+        R,t,_ = d['nonparametric_model'].sample_n(n_samples)
         pos = (-R@t[:, :, None]).squeeze()
-
     elif sample is not None:
         raise NotImplementedError()
 
     ax.scatter(pos[:,0], pos[:,1], pos[:,2], label=label, alpha=args.alpha)
-
     if separate:
         ax.legend(loc=LEGEND_LOC)
-
     return ax
 
 
@@ -167,33 +138,19 @@ def plot_trans(d, ds_name, label, separate, sample=None, ax=None):
         fig.suptitle('Translations: ' + ds_name)
         ax.scatter([0], [0], [0], c='k')
 
-    trans = d['t']
-    n_samples = trans.shape[0]
+    t = d['t']
+    n_samples = t.shape[0]
 
     if sample == 'param':
-        xy_mu     = d['xy_mu']
-        xy_cov    = d['xy_cov']
-        zf_log_mu  = d['zf_log_mu']
-        zf_log_cov = d['zf_log_cov']
-        xy = nr.multivariate_normal(xy_mu, xy_cov, size=n_samples)
-        z = np.exp(nr.multivariate_normal(zf_log_mu, zf_log_cov, size=n_samples))[:,0]
-        trans = np.hstack([xy,z.reshape(-1,1)])
-
+        _,t,_ = d['parametric_model'].sample_n(n_samples)
     elif sample == 'nonparam':
-        delta_xy = sample_from_unit_sphere(2,n_samples) * np.array([d['delta_x'],d['delta_y']])
-        delta_z = ( sample_from_unit_sphere(2,n_samples) * np.array([d['delta_z'],d['delta_f']]) )[:,0].reshape((-1,1))
-        deltas = np.hstack([delta_xy, delta_z])
-        indices = np.random.choice(n_samples, size=n_samples)
-        trans = trans[indices] + deltas
-
+        _,t,_ = d['nonparametric_model'].sample_n(n_samples)
     elif sample is not None:
         raise NotImplementedError()
     
-    ax.scatter(trans[:,0], trans[:,1], trans[:,2], label=label, alpha=args.alpha)
-
+    ax.scatter(t[:,0], t[:,1], t[:,2], label=label, alpha=args.alpha)
     if separate:
         ax.legend(loc=LEGEND_LOC)
-
     return ax
 
 
@@ -207,32 +164,22 @@ def plot_rot_axis(d, axis, ds_name, label, separate, sample=None, ax=None):
         set_xyz_labels(ax)
         fig.suptitle('Rotations ('+ ('x' if axis==0 else 'y' if axis==1 else 'z') + '-axis): ' + ds_name)
 
-    rot = d['R']
+    R = d['R']
     unit = np.array([0,0,0])
     unit[axis] = 1
-    pts = rot @ unit
-    n_samples = rot.shape[0]
+    n_samples = R.shape[0]
 
     if sample == 'param':
-        bingham   = BinghamDistribution(d['bingham_m'], d['bingham_z'])
-        samples_rot = np.array(list(map(lambda x: Rotation.from_quat(x).as_matrix(), bingham.random_samples(n_samples))))
-        pts = samples_rot @ unit
-
+        R,_,_ = d['parametric_model'].sample_n(n_samples)
     elif sample == 'nonparam':
-        deltas = sample_from_unit_sphere(3,n_samples) * d['delta_R']
-        deltas = np.array(list(map(lambda x: Rotation.from_rotvec(x).as_matrix(), deltas)))
-        indices = np.random.choice(n_samples, size=n_samples)
-        samples_rot = rot[indices] @ deltas
-        pts = samples_rot @ unit
-
+        R,_,_ = d['nonparametric_model'].sample_n(n_samples)
     elif sample is not None:
         raise NotImplementedError()
 
+    pts = R @ unit
     ax.scatter(pts[:,0], pts[:,1], pts[:,2], alpha=args.alpha, label=label)
-
     if separate:
         ax.legend(loc=LEGEND_LOC)
-
     return ax
 
 def plot_rot_x(d, ds_name, label, separate, sample=None, ax=None):
@@ -253,24 +200,18 @@ def plot_xy(d, ds_name, label, separate, sample=None, ax=None):
     n_samples = xy.shape[0]
 
     if sample == 'param':
-        xy_mu     = d['xy_mu']
-        xy_cov    = d['xy_cov']
-        xy = nr.multivariate_normal(xy_mu, xy_cov, size=n_samples)
-
+        _,t,_ = d['parametric_model'].sample_n(n_samples)
+        xy = t[:,:2]
     elif sample == 'nonparam':
         #ax.add_artist(patches.Ellipse(xy=(xy[0,0],xy[0,1]), width=d['delta_x'], height=d['delta_y'], color='black', alpha=0.2))
-        deltas = sample_from_unit_sphere(2,n_samples) * np.array([d['delta_x'],d['delta_y']])
-        indices = np.random.choice(n_samples, size=n_samples)
-        xy = xy[indices] + deltas
-
+        _,t,_ = d['nonparametric_model'].sample_n(n_samples)
+        xy = t[:,:2]
     elif sample is not None:
         raise NotImplementedError()
 
     ax.scatter(xy[:,0], xy[:,1], alpha=args.alpha, label=label)
-
     if separate:
         ax.legend(loc=LEGEND_LOC)
-
     return ax
 
 
@@ -292,74 +233,20 @@ def plot_zf(d, ds_name, label, separate, sample=None, ax=None):
     n_samples = z.shape[0]
 
     if sample == 'param':
-        zf_log_mu  = d['zf_log_mu']
-        zf_log_cov = d['zf_log_cov']
-        samples = np.exp(nr.multivariate_normal(zf_log_mu, zf_log_cov, size=n_samples))
-        z = samples[:,0]
-        f = samples[:,1]
-
+        _,t,f = d['parametric_model'].sample_n(n_samples)
+        z = t[:,2]
     elif sample == 'nonparam':
-        ax.add_artist(patches.Ellipse(xy=(z[0],f[0]), width=d['delta_z'], height=d['delta_f'], color='black', alpha=0.2))
-        deltas = sample_from_unit_sphere(2,n_samples) * np.array([d['delta_z'],d['delta_f']])
-        indices = np.random.choice(n_samples, size=n_samples)
-        samples = np.vstack([z,f]).T[indices] + deltas
-        z = samples[:,0]
-        f = samples[:,1]
-
+        #ax.add_artist(patches.Ellipse(xy=(z[0],f[0]), width=d['delta_z'], height=d['delta_f'], color='black', alpha=0.2))
+        _,t,f = d['nonparametric_model'].sample_n(n_samples)
+        z = t[:,2]
     elif sample is not None:
         raise NotImplementedError()
 
     ax.scatter(z, f, alpha=args.alpha, label=label)
-
     if separate:
         ax.legend(loc=LEGEND_LOC)
-
     return ax
 
-
-def nearest_dists(data):
-    dists = []
-    for i in range(data.shape[0]):
-        if len(data.shape) == 1:
-            dist2 = (data[i]-data)**2
-        else:
-            dist2 = np.sum((data[i]-data)**2, axis=-1)
-        dists.append(np.sqrt(dist2[np.argpartition(dist2, 1)[1]]))
-    return dists
-
-
-def nearest_dists_rot(data):
-    dists = []
-    for i in range(data.shape[0]):
-        R_deltas = data[i].T @ data
-        dist2 = np.arccos( np.clip((np.trace(R_deltas, axis1=1, axis2=2)-1)/2, -1, 1) )
-        dists.append( dist2[np.argpartition(dist2, 1)[1]] )
-    return dists
-
-
-def get_delta_nonparam(data, q):
-    mins = np.min(data, axis=0)
-    maxs = np.max(data, axis=0)
-    ranges = maxs - mins
-    ranges[ranges==0] = 1
-    data_norm = (data - mins) / ranges
-    delta = np.percentile(nearest_dists(data_norm), q) 
-    return delta * ranges
-
-def get_delta_nonparam_rot(data, q):
-    return np.percentile(nearest_dists_rot(data), q)
-
-def sample_from_unit_sphere(dim, numberOfSamples=1):
-    rg = np.random.default_rng()
-    X = rg.normal(size=(numberOfSamples , dim))
-    U = rg.random((numberOfSamples, 1)) 
-    return U**(1/dim) / np.sqrt(np.sum(X**2, 1, keepdims=True)) * X
-
-def get_outliers(data, q=0.05):
-    med = np.median(data, axis=0)
-    dist = np.sqrt(np.sum((data - med)**2, axis=-1))
-    n = int(data.shape[0]*q)
-    return np.argpartition(-dist, n)[:n]                                          
 
 def plot(args, ds_name, dict_train, dict_test, synts):
 
