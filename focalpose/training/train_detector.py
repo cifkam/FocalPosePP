@@ -14,7 +14,8 @@ from focalpose.config import EXP_DIR
 
 from torch.utils.data import DataLoader, ConcatDataset
 from focalpose.utils.multiepoch_dataloader import MultiEpochDataLoader
-from torchvision.models.utils import load_state_dict_from_url
+#from torchvision.models.utils import load_state_dict_from_url
+from torch.hub import load_state_dict_from_url
 
 from focalpose.datasets.datasets_cfg import make_scene_dataset
 from focalpose.datasets.detection_dataset import DetectionDataset

@@ -161,6 +161,16 @@ class BopRecordingScene(BaseScene):
         cam.set_extrinsic_spherical(target=box_center, rho=rho, phi=phi, theta=theta, roll=roll)
         return cam
 
+    @staticmethod
+    def check_border(uniqs, cam_obs):
+        for uniq in uniqs[uniqs > 0]:
+            H, W = cam_obs['mask'].shape
+            ids = np.where(cam_obs['mask'] == uniq)
+            if ids[0].max() == H-1 or ids[0].min() == 0 or \
+                ids[1].max() == W-1 or ids[1].min() == 0:
+                return False
+        return True
+
     def camera_rand(self):
         N = 0
         valid = False
@@ -175,12 +185,7 @@ class BopRecordingScene(BaseScene):
 
             valid = len(uniqs) == len(self.bodies) + 1
             if valid and self.border_check:
-                for uniq in uniqs[uniqs > 0]:
-                    H, W = cam_obs_['mask'].shape
-                    ids = np.where(cam_obs_['mask'] == uniq)
-                    if ids[0].max() == H-1 or ids[0].min() == 0 or \
-                       ids[1].max() == W-1 or ids[1].min() == 0:
-                        valid = False
+                valid = BopRecordingScene.check_border(uniqs, cam_obs_)
             N += 1
             if N >= 3:
                 raise SamplerError('Cannot sample valid camera configuration.')

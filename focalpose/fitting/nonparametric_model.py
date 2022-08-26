@@ -11,11 +11,11 @@ class NonparametricModel():
         self.delta_f = delta_f
 
     @staticmethod
-    def fit(real_dataset, q=98):
+    def fit(real_dataset, q=0.95):
         return NonparametricModel(real_dataset, *NonparametricModel.fit_params(real_dataset, q))
     
     @staticmethod
-    def fit_params(real_dataset, q=98):
+    def fit_params(real_dataset, q=0.95):
         xy = real_dataset.TWC[:,:2,3]
         zf = np.vstack([real_dataset.TWC[:,2,3], real_dataset.f]).T
         R = real_dataset.TWC[:,:3,:3]
@@ -85,12 +85,12 @@ class NonparametricModel():
         ranges = maxs - mins
         ranges[ranges==0] = 1
         data_norm = (data - mins) / ranges
-        delta = np.percentile(NonparametricModel.nearest_dists(data_norm), q) 
+        delta = np.quantile(NonparametricModel.nearest_dists(data_norm), q) 
         return delta * ranges
 
     @staticmethod
     def get_delta_rot(data, q):
-        return np.percentile(NonparametricModel.nearest_dists_rot(data), q)
+        return np.quantile(NonparametricModel.nearest_dists_rot(data), q)
 
     @staticmethod
     def sample_from_unit_sphere(dim, samples=1):

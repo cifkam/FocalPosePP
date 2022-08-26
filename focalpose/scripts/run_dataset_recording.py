@@ -35,10 +35,10 @@ def make_cfg(cfg_name,
         gpu_renderer=True,
         texture_ds='shapenet',
         domain_randomization=True,
-        background_textures=True,
+        background_textures=False,
         n_objects_interval=(1, 1),
         proba_falling=0.0,
-        border_check=True,
+        border_check=False,
         n_textures_cache=100,
         objects_xyz_interval=((-0.15, -0.15, 0.), (0.15, 0.15, 0.)),
         camera_distance_interval=(0.8, 2.4),
@@ -57,7 +57,6 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.update(
             urdf_ds='pix3d-sofa',
         )
-        fit_file = LOCAL_DATA_DIR / 'pix3d' / 'sofa-fit.json'
 
     elif cfg_name == 'pix3d-bed':
         n_frames = 1e6
@@ -68,7 +67,6 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.update(
             urdf_ds='pix3d-bed',
         )
-        fit_file = LOCAL_DATA_DIR / 'pix3d' / 'bed-fit.json'
 
     elif cfg_name == 'pix3d-table':
         n_frames = 1e6
@@ -79,7 +77,6 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.update(
             urdf_ds='pix3d-table',
         )
-        fit_file = LOCAL_DATA_DIR / 'pix3d' / 'table-fit.json'
 
     elif 'pix3d-chair' in cfg_name:
         cfg.scene_kwargs['camera_distance_interval'] = (0.8, 3.4)
@@ -91,7 +88,6 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.update(
             urdf_ds=cfg_name,
         )
-        fit_file = LOCAL_DATA_DIR / 'pix3d' / 'chair-fit.json'
 
     elif cfg_name == 'pix3d':
         n_frames = 1e6
@@ -116,7 +112,6 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.update(
             urdf_ds=cfg_name,
         )
-        fit_file = LOCAL_DATA_DIR / 'StanfordCars' / 'fit.json'
         
     elif 'compcars' in cfg_name:
         n_frames = 100000
@@ -129,7 +124,6 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.update(
             urdf_ds=cfg_name,
         )
-        fit_file = LOCAL_DATA_DIR / 'CompCars' / 'fit.json'
         
     elif resume_ds_name:
         pass
