@@ -106,8 +106,9 @@ class Camera:
         TWC = Transform(R, t)
         self.set_extrinsic_T(TWC)
 
-    def set_intrinsic_K(self, K):
-        h, w = self._shape
+    def set_intrinsic_K(self, K, w=None, h=None):
+        if h == None: h = self._shape[0]
+        if w == None: w = self._shape[1]
         proj_mat = proj_from_K(K, near=self._near, far=self._far, h=h, w=w).flatten()
         assert np.allclose(proj_mat[11], -1)
         self._proj_mat = proj_mat
