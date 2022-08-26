@@ -120,7 +120,6 @@ class BopRecordingSceneNonparametric(BopRecordingScene):
             ids = np.where(mask == uniq)
             bbox_area = (ids[0].max()-ids[0].min()) * (ids[1].max()-ids[1].min())
             if bbox_area / (mask.shape[0]*mask.shape[1]) < q:
-                #from matplotlib import pyplot as plt; plt.imshow(cam_obs['rgb']); plt.show()
                 return False
         return True
 
@@ -154,11 +153,6 @@ class BopRecordingSceneNonparametric(BopRecordingScene):
             intersection_area = BopRecordingSceneNonparametric.intersection_area(img_bbox, object_bbox)
 
             if intersection_area / object_area < treshold:
-                from matplotlib import pyplot as plt; import matplotlib.patches as patches
-                #fig, ax = plt.subplots();
-                #ax.imshow(cam_obs['rgb']);
-                #ax.add_patch(patches.Rectangle((padding_w, padding_h), img_w, img_h, linewidth=1, edgecolor='r', facecolor='none'));
-                #plt.show()
                 return False
         
         return True
@@ -210,7 +204,6 @@ class BopRecordingSceneNonparametric(BopRecordingScene):
                 valid = self.check_area(uniqs, cam_obs_, self.area_check)
                 
         self.cam_obs = cam_obs_
-        from matplotlib import pyplot as plt; plt.imshow(self.cam_obs['rgb']); plt.show()
     
             
         
