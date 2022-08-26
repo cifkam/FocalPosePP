@@ -256,9 +256,15 @@ def evaluate(cfg):
         bboxes_gt = cast(data.bboxes).float()
         labels_gt = np.array([obj['name'] for obj in data.objects])
 
+        if args.gt_cls:
+            pred_labels = labels_gt
+        else:
+            pred_labels = pred_labels_all[idx*32:(idx+1)*32]
 
-        pred_labels = pred_labels_all[idx*32:(idx+1)*32]
-        pred_bbox = pred_bboxes[idx*32:(idx+1)*32]
+        if args.gt_bbox:
+            pred_bbox = bboxes_gt
+        else:
+            pred_bbox = pred_bboxes[idx*32:(idx+1)*32]
 
         points = mesh_db.select(labels_gt).points
         points_init = mesh_db.select(pred_labels).points
@@ -380,6 +386,8 @@ if __name__ == '__main__':
     parser.add_argument('--mrcnn-run-id', default='', type=str)
     parser.add_argument('--niter', default=1, type=int)
     parser.add_argument('--dataset', default='', type=str)
+    parser.add_argument('--gt_bbox', default=False, action='store_true')
+    parser.add_argument('--gt_cls', default=False, action='store_true')
     args = parser.parse_args()
     cfg = argparse.ArgumentParser('').parse_args([])
 
@@ -415,5 +423,7 @@ if __name__ == '__main__':
         cfg.n_rendering_workers = 8
     cfg.n_dataloader_workers = 8
     cfg.niter = args.niter
+    cfg.gt_bbox = args.gt_bbox
+    cfg.gt_cls = args.gt_cls
 
     evaluate(cfg=cfg)
