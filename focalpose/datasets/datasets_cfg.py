@@ -74,8 +74,14 @@ def make_urdf_dataset(ds_name):
         ds = Pix3DUrdfDataset(root_dir=LOCAL_DATA_DIR / 'models_urdf' / 'pix3d')
         mask = (ds.index['category'] == 'bed') | (ds.index['category'] == 'sofa') | (ds.index['category'] == 'table')
         ds.index = ds.index[mask].reset_index(drop=True)
-    elif ds_name.lower() == 'pix3d':
+    elif 'pix3d' in ds_name.lower() and 'pix3d-p' not in ds_name.lower():
         ds = Pix3DUrdfDataset(root_dir=LOCAL_DATA_DIR / 'models_urdf' / 'pix3d')
+        split_num = int(ds_name.lower().split('-')[-1])
+        assert split_num >= 1 and split_num <= 20
+        if split_num < 20:
+            ds.index = ds.index.iloc[(split_num - 1)*10:split_num*10].reset_index(drop=True)
+        else:
+            ds.index = ds.index.iloc[(split_num - 1)*10:].reset_index(drop=True)
     elif ds_name.lower() == 'stanfordcars3d':
         ds = CarsUrdfDataset(root_dir=LOCAL_DATA_DIR / 'models_urdf' / 'StanfordCars3D')
     elif 'stanfordcars3d' in ds_name.lower() and 'stanfordcars3d-p' not in ds_name.lower():

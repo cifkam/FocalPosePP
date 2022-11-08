@@ -143,107 +143,79 @@ def make_cfg(args):
         cfg.n_symmetries_batch = 1
 
         if 'F05p' in args.config:
-            cfg.train_ds_names = [('synthetic.pix3d-chair-1-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-2-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-3-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-4-1M.train', 1, None),
-                                  ('pix3d-chair-1.train', 3, None),
-                                  ('pix3d-chair-2.train', 3, None),
-                                  ('pix3d-chair-3.train', 3, None),
-                                  ('pix3d-chair-4.train', 3, None)]
-            cfg.test_ds_names = [('pix3d-chair-1.test', 1, None),
-                                ('pix3d-chair-2.test', 1, None),
-                                ('pix3d-chair-3.test', 1, None),
-                                ('pix3d-chair-4.test', 1, None)]
+            cfg.train_ds_names = [(f'synthetic.pix3d-chair-{i}-1M.train', 1, None) for i in range(1,5)] +\
+                                 [(f'pix3d-chair-{i}.train', 3, None) for i in range(1,5)]
+            cfg.test_ds_names =  [(f'pix3d-chair-{i}.test', 1, None) for i in range(1,5)]
 
     elif 'pix3d-chair-2' in args.config:
         cfg.urdf_ds_name = 'pix3d-chair-p2'
         cfg.n_symmetries_batch = 1
 
         if 'F05p' in args.config:
-            cfg.train_ds_names = [('synthetic.pix3d-chair-5-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-6-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-7-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-8-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-9-1M.train', 1, None),
-                                  ('pix3d-chair-5.train', 3, None),
-                                  ('pix3d-chair-6.train', 3, None),
-                                  ('pix3d-chair-7.train', 3, None),
-                                  ('pix3d-chair-8.train', 3, None),
-                                  ('pix3d-chair-9.train', 3, None)]
-            cfg.test_ds_names = [('pix3d-chair-5.test', 1, None),
-                                ('pix3d-chair-6.test', 1, None),
-                                ('pix3d-chair-7.test', 1, None),
-                                ('pix3d-chair-8.test', 1, None),
-                                ('pix3d-chair-9.test', 1, None)]
+            cfg.train_ds_names = [(f'synthetic.pix3d-chair-{i}-1M.train', 1, None) for i in range(5,10)] +\
+                                 [(f'pix3d-chair-{i}.train', 3, None) for i in range(5,10)]
+            cfg.test_ds_names =  [(f'pix3d-chair-{i}.test', 1, None) for i in range(5,10)]
 
     elif 'pix3d-chair' in args.config:
         cfg.urdf_ds_name = 'pix3d-chair'
         cfg.n_symmetries_batch = 1
 
         if 'F05p' in args.config:
-            cfg.train_ds_names = [('synthetic.pix3d-chair-1-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-2-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-3-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-4-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-5-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-6-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-7-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-8-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-9-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-10-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-11-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-12-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-13-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-14-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-15-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-16-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-17-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-18-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-19-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-20-1M.train', 1, None),
-                                  ('synthetic.pix3d-chair-21-1M.train', 1, None),
-                                  ('pix3d-chair.train', 4, None)]
-            cfg.test_ds_names = [('pix3d-chair.test', 1, None)]
+            cfg.train_ds_names = [(f'synthetic.pix3d-chair-{i}-1M.train', 1, None) for i in range(1,22)] +\
+                                 [('pix3d-chair.train', 4, None)]
+            cfg.test_ds_names =  [('pix3d-chair.test', 1, None)]
+
+    elif 'pix3d' in args.config:
+        cfg.urdf_ds_name = 'pix3d'
+        cfg.n_symmetries_batch = 1
+
+        if 'synth' in args.config:
+            cfg.train_ds_names = [(f'synthetic.pix3d-{i}-1M.train', 1, None) for i in range(1,21)]
+            cfg.test_ds_names = [('pix3d-bed.test', 1, None),
+                                 ('pix3d-chair.test', 1, None),
+                                 ('pix3d-sofa.test', 1, None),
+                                 ('pix3d-table.test', 1, None)]
+
+        elif 'F05p' in args.config:
+            cfg.train_ds_names = [(f'synthetic.pix3d-{i}-1M.train', 1, None) for i in range(1,21)] +\
+                                 [('pix3d-bed.train', 1, None),
+                                  ('pix3d-chair.train', 1, None),
+                                  ('pix3d-sofa.train', 1, None),
+                                  ('pix3d-table.train', 1, None)]
+
+            cfg.test_ds_names = [('pix3d-bed.test', 1, None),
+                                 ('pix3d-chair.test', 1, None),
+                                 ('pix3d-sofa.test', 1, None),
+                                 ('pix3d-table.test', 1, None)]
+
+        elif 'real' in args.config:
+            cfg.train_ds_names = [('pix3d-bed.train', 1, None),
+                                  ('pix3d-chair.train', 1, None),
+                                  ('pix3d-sofa.train', 1, None),
+                                  ('pix3d-table.train', 1, None)]
+
+            cfg.test_ds_names = [('pix3d-bed.test', 1, None),
+                                 ('pix3d-chair.test', 1, None),
+                                 ('pix3d-sofa.test', 1, None),
+                                 ('pix3d-table.test', 1, None)]
 
     elif 'compcars3d' in args.config:
         cfg.urdf_ds_name = 'compcars3d'
         cfg.n_symmetries_batch = 1
 
         if 'F05p' in args.config:
-            cfg.train_ds_names = [('synthetic.compcars3d-1-1M.train', 1, None),
-                                  ('synthetic.compcars3d-2-1M.train', 1, None),
-                                  ('synthetic.compcars3d-3-1M.train', 1, None),
-                                  ('synthetic.compcars3d-4-1M.train', 1, None),
-                                  ('synthetic.compcars3d-5-1M.train', 1, None),
-                                  ('synthetic.compcars3d-6-1M.train', 1, None),
-                                  ('synthetic.compcars3d-7-1M.train', 1, None),
-                                  ('synthetic.compcars3d-8-1M.train', 1, None),
-                                  ('synthetic.compcars3d-9-1M.train', 1, None),
-                                  ('synthetic.compcars3d-10-1M.train', 1, None),
-                                  ('compcars3d.train', 3, None)]
-            cfg.test_ds_names = [('compcars3d.test', 1, None)]
+            cfg.train_ds_names = [(f'synthetic.compcars3d-{i}-1M.train', 1, None) for i in range(1,11)] +\
+                                 [('compcars3d.train', 3, None)]
+            cfg.test_ds_names =  [('compcars3d.test', 1, None)]
 
     elif 'stanfordcars3d' in args.config:
         cfg.urdf_ds_name = 'stanfordcars3d'
         cfg.n_symmetries_batch = 1
 
         if 'F05p' in args.config:
-            cfg.train_ds_names = [('synthetic.stanfordcars3d-1-1M.train', 1, None),
-                                  ('synthetic.stanfordcars3d-2-1M.train', 1, None),
-                                  ('synthetic.stanfordcars3d-3-1M.train', 1, None),
-                                  ('synthetic.stanfordcars3d-4-1M.train', 1, None),
-                                  ('synthetic.stanfordcars3d-5-1M.train', 1, None),
-                                  ('synthetic.stanfordcars3d-6-1M.train', 1, None),
-                                  ('synthetic.stanfordcars3d-7-1M.train', 1, None),
-                                  ('synthetic.stanfordcars3d-8-1M.train', 1, None),
-                                  ('synthetic.stanfordcars3d-9-1M.train', 1, None),
-                                  ('synthetic.stanfordcars3d-10-1M.train', 1, None),
-                                  ('synthetic.stanfordcars3d-11-1M.train', 1, None),
-                                  ('synthetic.stanfordcars3d-12-1M.train', 1, None),
-                                  ('synthetic.stanfordcars3d-13-1M.train', 1, None),
-                                  ('stanfordcars3d.train', 1, None)]
-            cfg.test_ds_names = [('stanfordcars3d.test', 1, None)]
+            cfg.train_ds_names = [(f'synthetic.stanfordcars3d-{i}-1M.train', 1, None) for i in range(1,14)] +\
+                                 [('stanfordcars3d.train', 1, None)]
+            cfg.test_ds_names =  [('stanfordcars3d.test', 1, None)]
 
     cfg.eval_epoch_interval = 10
     if 'stanfordcars3d' in args.config:
