@@ -35,10 +35,10 @@ def make_cfg(cfg_name,
         gpu_renderer=True,
         texture_ds='shapenet',
         domain_randomization=True,
-        background_textures=False,
+        background_textures=True,
         n_objects_interval=(1, 1),
         proba_falling=0.0,
-        border_check=False,
+        border_check=True,
         n_textures_cache=100,
         objects_xyz_interval=((-0.15, -0.15, 0.), (0.15, 0.15, 0.)),
         camera_distance_interval=(0.8, 2.4),
@@ -89,14 +89,15 @@ def make_cfg(cfg_name,
             urdf_ds=cfg_name,
         )
 
-    elif cfg_name == 'pix3d':
-        n_frames = 1e6
+    elif 'pix3d-' in cfg_name:
+        cfg.scene_kwargs['camera_distance_interval'] = (0.8, 3.4)
+        n_frames = 50000
         cfg.n_frames_per_chunk = 100
         cfg.n_chunks = n_frames // cfg.n_frames_per_chunk
         cfg.ds_name = f'{cfg_name}-1M'
 
         cfg.scene_kwargs.update(
-            urdf_ds='pix3d',
+            urdf_ds=cfg_name,
         )
         if pose != 'uniform':
             raise NotImplementedError('')

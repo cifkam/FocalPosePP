@@ -19,7 +19,7 @@ class SyntheticSceneDataset:
 
         keys_path = ds_dir / (('train' if train else 'val') + '_keys.pkl')
         keys = pkl.loads(keys_path.read_bytes())
-        self.cfg = yaml.load((ds_dir / 'config.yaml').read_text(), Loader=yaml.FullLoader)
+        self.cfg = yaml.load((ds_dir / 'config.yaml').read_text(), Loader=yaml.UnsafeLoader)
         self.object_set = self.cfg.scene_kwargs['urdf_ds']
         self.keys = keys
 
