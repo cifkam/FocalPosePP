@@ -165,40 +165,6 @@ def make_cfg(args):
                                  [('pix3d-chair.train', 4, None)]
             cfg.test_ds_names =  [('pix3d-chair.test', 1, None)]
 
-    elif 'pix3d' in args.config:
-        cfg.urdf_ds_name = 'pix3d'
-        cfg.n_symmetries_batch = 1
-
-        if 'synth' in args.config:
-            cfg.train_ds_names = [(f'synthetic.pix3d-{i}-1M.train', 1, None) for i in range(1,21)]
-            cfg.test_ds_names = [('pix3d-bed.test', 1, None),
-                                 ('pix3d-chair.test', 1, None),
-                                 ('pix3d-sofa.test', 1, None),
-                                 ('pix3d-table.test', 1, None)]
-
-        elif 'F05p' in args.config:
-            cfg.train_ds_names = [(f'synthetic.pix3d-{i}-1M.train', 1, None) for i in range(1,21)] +\
-                                 [('pix3d-bed.train', 1, None),
-                                  ('pix3d-chair.train', 1, None),
-                                  ('pix3d-sofa.train', 1, None),
-                                  ('pix3d-table.train', 1, None)]
-
-            cfg.test_ds_names = [('pix3d-bed.test', 1, None),
-                                 ('pix3d-chair.test', 1, None),
-                                 ('pix3d-sofa.test', 1, None),
-                                 ('pix3d-table.test', 1, None)]
-
-        elif 'real' in args.config:
-            cfg.train_ds_names = [('pix3d-bed.train', 1, None),
-                                  ('pix3d-chair.train', 1, None),
-                                  ('pix3d-sofa.train', 1, None),
-                                  ('pix3d-table.train', 1, None)]
-
-            cfg.test_ds_names = [('pix3d-bed.test', 1, None),
-                                 ('pix3d-chair.test', 1, None),
-                                 ('pix3d-sofa.test', 1, None),
-                                 ('pix3d-table.test', 1, None)]
-
     elif 'compcars3d' in args.config:
         cfg.urdf_ds_name = 'compcars3d'
         cfg.n_symmetries_batch = 1

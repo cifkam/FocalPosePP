@@ -48,7 +48,29 @@ def make_cfg(cfg_name,
     )
     cfg.ds_name = f'{cfg_name}-1M'
 
-    if cfg_name == 'pix3d-sofa':
+    if cfg_name == 'pix3d-sofa-bed-table':
+        n_frames = 1e6
+        cfg.n_frames_per_chunk = 100
+        cfg.n_chunks = n_frames // cfg.n_frames_per_chunk
+        cfg.ds_name = f'{cfg_name}-1M'
+
+        cfg.scene_kwargs.update(
+            urdf_ds=cfg_name,
+        )
+        
+    elif 'pix3d-sofa-bed-table-' in cfg_name:
+        n_frames = 50000
+        cfg.n_frames_per_chunk = 100
+        cfg.n_chunks = n_frames // cfg.n_frames_per_chunk
+        cfg.ds_name = f'{cfg_name}-1M'
+
+        cfg.scene_kwargs.update(
+            urdf_ds=cfg_name,
+        )
+        if pose != 'uniform':
+            raise NotImplementedError('')
+
+    elif cfg_name == 'pix3d-sofa':
         n_frames = 1e6
         cfg.n_frames_per_chunk = 100
         cfg.n_chunks = n_frames // cfg.n_frames_per_chunk
@@ -89,18 +111,15 @@ def make_cfg(cfg_name,
             urdf_ds=cfg_name,
         )
 
-    elif 'pix3d-' in cfg_name:
-        cfg.scene_kwargs['camera_distance_interval'] = (0.8, 3.4)
-        n_frames = 50000
+    elif cfg_name == 'pix3d':
+        n_frames = 1e6
         cfg.n_frames_per_chunk = 100
         cfg.n_chunks = n_frames // cfg.n_frames_per_chunk
         cfg.ds_name = f'{cfg_name}-1M'
 
         cfg.scene_kwargs.update(
-            urdf_ds=cfg_name,
+            urdf_ds='pix3d',
         )
-        if pose != 'uniform':
-            raise NotImplementedError('')
 
     elif 'stanfordcars' in cfg_name:
         n_frames = 75000
@@ -113,7 +132,7 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.update(
             urdf_ds=cfg_name,
         )
-        
+
     elif 'compcars' in cfg_name:
         n_frames = 100000
         cfg.scene_kwargs['camera_distance_interval'] = (0.8, 3.0)
@@ -125,7 +144,7 @@ def make_cfg(cfg_name,
         cfg.scene_kwargs.update(
             urdf_ds=cfg_name,
         )
-        
+
     elif resume_ds_name:
         pass
 
