@@ -19,9 +19,9 @@ def make_cfg(args):
         cfg.resume_run_id = args.resume
         logger.info(f"{Fore.RED}Resuming {cfg.resume_run_id} {Style.RESET_ALL}")
 
-    if shutil.which('squeue'):
+    if 'SLURM_PROCID' in os.environ:
         N_CPUS = int(os.environ.get('SLURM_PROCID', 10))
-    elif shutil.which('qstat'):
+    elif 'MPI_LOCALRANKID' in os.environ:
         N_CPUS = int(os.environ.get('MPI_LOCALRANKID', 10))
     else:
         N_CPUS = 8
@@ -253,9 +253,9 @@ def make_cfg(args):
         cfg.n_rendering_workers = 0
         cfg.n_test_frames = 10
 
-    if shutil.which('squeue'):
+    if 'SLURM_NTASKS' in os.environ:
         N_GPUS = int(os.environ.get('SLURM_NTASKS', 1))
-    elif shutil.which('qstat'):
+    elif 'PMI_SIZE' in os.environ:
         N_GPUS = int(os.environ.get('PMI_SIZE', 1))
     else:
         N_GPUS = 1

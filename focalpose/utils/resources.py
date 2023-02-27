@@ -25,13 +25,13 @@ def get_total_memory():
     return mem / 1e9
 
 def assign_gpu():
-    if shutil.which('squeue'):
+    if 'CUDA_VISIBLE_DEVICES' in os.environ:
         device_ids = os.environ['CUDA_VISIBLE_DEVICES']
         device_ids = device_ids.split(',')
         slurm_localid = int(os.environ['SLURM_LOCALID'])
         assert slurm_localid < len(device_ids)
         cuda_id = int(device_ids[slurm_localid])
-    elif shutil.which('qstat'):
+    elif 'MPI_LOCALRANKID' in os.environ:
         cuda_id = int(os.environ['MPI_LOCALRANKID'])
     else:
         cuda_id = 0
