@@ -23,7 +23,7 @@ class BopRecordingSceneNonparametric(BopRecordingScene):
                  urdf_ds='ycbv',
                  texture_ds='shapenet',
                  domain_randomization=True,
-                 background_textures=True,
+                 background_textures=False,
                  textures_on_objects=False,
                  n_objects_interval=(1, 1),
                  #objects_xyz_interval=((0.0, -0.5, -0.15), (1.0, 0.5, 0.15)),
@@ -180,7 +180,7 @@ class BopRecordingSceneNonparametric(BopRecordingScene):
             valid = len(uniqs) == len(self.bodies) + 1
             if not valid: continue
             
-            if self.soft_border_check_enlargement and self.border_check == False:
+            if self.soft_border_check_enlargement and not self.border_check:
                 # check that object is inside enlarged image and that image contains big enough portion of object's bbox
                 valid = self.check_border(uniqs, cam_obs_) and self.check_border_soft(uniqs, cam_obs_, 
                     self.resolution,
@@ -196,7 +196,7 @@ class BopRecordingSceneNonparametric(BopRecordingScene):
                 mask[mask == 255] = 0
                 uniqs = np.unique(cam_obs_['mask'])
 
-            if self.border_check and self.enlargement_check != 1:
+            if self.border_check and not self.soft_border_check_enlargement:
                 valid = self.check_border(uniqs, cam_obs_)
                 if not valid: continue
 

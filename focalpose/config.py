@@ -25,6 +25,8 @@ BOP_CHALLENGE_TOOLKIT_DIR = PROJECT_DIR / 'deps' / 'bop_toolkit_challenge'
 
 EXP_DIR = LOCAL_DATA_DIR / 'experiments'
 FEATURES_DIR = LOCAL_DATA_DIR / 'features'
+CLASSIFIERS_DIR = LOCAL_DATA_DIR / 'classifiers'
+CLASSIFIERS_ML_DECODER_DIR = LOCAL_DATA_DIR / 'classifiers_ML_Decoder'
 RESULTS_DIR = LOCAL_DATA_DIR / 'results'
 DEBUG_DATA_DIR = LOCAL_DATA_DIR / 'debug_data'
 

@@ -18,7 +18,7 @@ from sklearn.ensemble import VotingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 
-from focalpose.config import EXP_DIR, LOCAL_DATA_DIR, FEATURES_DIR
+from focalpose.config import EXP_DIR, LOCAL_DATA_DIR, FEATURES_DIR, CLASSIFIERS_DIR, CLASSIFIERS_ML_DECODER_DIR
 from focalpose.utils.resources import assign_gpu
 from focalpose.utils.logging import get_logger
 from focalpose.rendering.bullet_batch_renderer import BulletBatchRenderer
@@ -31,7 +31,11 @@ from focalpose.lib3d.camera_geometry import project_points_robust as project_poi
 from focalpose.training.pose_models_cfg import create_model_pose
 from focalpose.lib3d.rigid_mesh_database import MeshDataBase
 from focalpose.models import vision_transformer as vits
+from focalpose.datasets.ml_decoder_detection_dataset import MLDecoderDetectionDataset
 
+from ML_Decoder.models import create_model
+from ML_Decoder.models.tresnet.tresnet import InplacABN_to_ABN
+from ML_Decoder.helper_functions.bn_fusion import fuse_bn_recursively
 
 cudnn.benchmark = False
 
@@ -116,8 +120,6 @@ def evaluate(cfg):
     label_to_category_id['background'] = 0
     label_to_category_id['object'] = 1
 
-    coarse_model = load_pose_model(cfg.coarse_run_id, cfg, batch_renderer, mesh_db)
-    refine_model = load_pose_model(cfg.refine_run_id, cfg, batch_renderer, mesh_db)
     mrcnn_model = load_detector_model(cfg.mrcnn_run_id, cfg, label_to_category_id)
 
     pred_bboxes = []
@@ -140,14 +142,6 @@ def evaluate(cfg):
 
     del mrcnn_model
 
-    vit_model = vits.__dict__['vit_base'](patch_size=8, num_classes=0)
-    for p in vit_model.parameters():
-        p.requires_grad = False
-    vit_model.eval()
-    vit_model.to('cuda')
-
-    vit_model.load_state_dict(torch.load(LOCAL_DATA_DIR / 'dino_vitbase8_pretrain.pth'), strict=True)
-
     labels = set(scene_ds_train.all_labels)
     labels = labels.union(scene_ds_eval.all_labels)
     labels = sorted(list(labels))
@@ -157,85 +151,138 @@ def evaluate(cfg):
         labels_to_id[label] = idx
         id_to_labels[idx] = label
 
-    if not (FEATURES_DIR / (args.dataset.split('.')[0] + '_train_features.npy')).is_file():
-        print(f"Extracting DINO features for the dataset: {args.dataset}")
-        features_train = []
-        y_train = []
-        for entry in tqdm(ds_train, total=len(ds_train)):
-            img = torch.tensor(entry.images).float().cuda()
 
-            dilated_bbox = torch.tensor([entry.bboxes[0] - entry.bboxes[0] * 0.2, entry.bboxes[1] - entry.bboxes[1] * 0.2,
-                                         entry.bboxes[2] + entry.bboxes[2] * 0.2, entry.bboxes[3] + entry.bboxes[3] * 0.2])
-            dilated_bbox = dilated_bbox.unsqueeze(0).float().cuda()
+    if cfg.classifier == '':
+        vit_model = vits.__dict__['vit_base'](patch_size=8, num_classes=0)
+        for p in vit_model.parameters():
+            p.requires_grad = False
+        vit_model.eval()
+        vit_model.to('cuda')
 
-            img = torchvision.ops.roi_align(img.unsqueeze(0), [dilated_bbox], output_size=(224, 224))[0] / 255
-            img = train_transform(img.cpu()).cuda()
-            fts = vit_model(img.unsqueeze(0)).cpu().numpy()
-            y_train.append(labels_to_id[entry.objects['name']])
-            features_train.append(fts[0])
+        vit_model.load_state_dict(torch.load(LOCAL_DATA_DIR / 'dino_vitbase8_pretrain.pth'), strict=True)
 
-        X_train = np.array(features_train)
-        y_train = np.array(y_train)
-        np.save(FEATURES_DIR / (args.dataset.split('.')[0] + '_train_features.npy'), X_train)
-        np.save(FEATURES_DIR / (args.dataset.split('.')[0] + '_train_y.npy'), y_train)
-    else:
-        print(f"Using cached DINO features for the dataset: {args.dataset}")
-        X_train = np.load(FEATURES_DIR / (args.dataset.split('.')[0] + '_train_features.npy'))
-        y_train = np.load(FEATURES_DIR / (args.dataset.split('.')[0] + '_train_y.npy'))
 
-    if not (FEATURES_DIR / (args.dataset.split('.')[0] + '_test_features.npy')).is_file():
-        features_test = []
-        y_test = []
-        for entry, bbox in tqdm(zip(ds_eval, pred_bboxes), total=len(ds_eval)):
-            img = torch.tensor(entry.images).float().cuda()
+        if not (FEATURES_DIR / (args.dataset.split('.')[0] + '_train_features.npy')).is_file():
+            print(f"Extracting DINO features for the dataset: {args.dataset}")
+            features_train = []
+            y_train = []
+            for entry in tqdm(ds_train, total=len(ds_train)):
+                img = torch.tensor(entry.images).float().cuda()
 
-            img = torchvision.ops.roi_align(img.unsqueeze(0), [bbox.unsqueeze(0)], output_size=(224, 224))[0] / 255
-            img = val_transform(img.cpu()).cuda()
+                dilated_bbox = torch.tensor([entry.bboxes[0] - entry.bboxes[0] * 0.2, entry.bboxes[1] - entry.bboxes[1] * 0.2,
+                                            entry.bboxes[2] + entry.bboxes[2] * 0.2, entry.bboxes[3] + entry.bboxes[3] * 0.2])
+                dilated_bbox = dilated_bbox.unsqueeze(0).float().cuda()
 
-            fts = vit_model(img.unsqueeze(0)).cpu().numpy()
-            y_test.append(labels_to_id[entry.objects['name']])
+                img = torchvision.ops.roi_align(img.unsqueeze(0), [dilated_bbox], output_size=(224, 224))[0] / 255
+                img = train_transform(img.cpu()).cuda()
+                fts = vit_model(img.unsqueeze(0)).cpu().numpy()
+                y_train.append(labels_to_id[entry.objects['name']])
+                features_train.append(fts[0])
 
-            features_test.append(fts[0])
-
-        X_test = np.array(features_test)
-        y_test = np.array(y_test)
-        np.save(FEATURES_DIR / (args.dataset.split('.')[0] + '_test_features.npy'), X_test)
-        np.save(FEATURES_DIR / (args.dataset.split('.')[0] + '_test_y.npy'), y_test)
-    else:
-        X_test = np.load(FEATURES_DIR / (args.dataset.split('.')[0] + '_test_features.npy'))
-        y_test = np.load(FEATURES_DIR / (args.dataset.split('.')[0] + '_test_y.npy'))
-
-    print('Learning the classfier over the DINO features')
-
-    le = LabelEncoder()
-    le.fit(y_train)
-
-    y_train = le.transform(y_train)
-    y_test = le.transform(y_test)
-
-    clf = make_pipeline(StandardScaler(), VotingClassifier(estimators=[
-        ('clf1', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
-        ('clf2', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
-        ('clf3', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
-        ('clf4', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
-        ('clf5', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000))], voting='soft'))
-    clf.fit(X_train, y_train)
-
-    top_5 = []
-    y_pred = clf.predict_proba(X_test)
-
-    for idx in range(len(y_pred)):
-        if y_test[idx] in np.argsort(y_pred[idx])[::-1][:5]:
-            top_5.append(1)
+            X_train = np.array(features_train)
+            y_train = np.array(y_train)
+            np.save(FEATURES_DIR / (args.dataset.split('.')[0] + '_train_features.npy'), X_train)
+            np.save(FEATURES_DIR / (args.dataset.split('.')[0] + '_train_y.npy'), y_train)
         else:
-            top_5.append(0)
+            print(f"Using cached DINO features for the dataset: {args.dataset}")
+            X_train = np.load(FEATURES_DIR / (args.dataset.split('.')[0] + '_train_features.npy'))
+            y_train = np.load(FEATURES_DIR / (args.dataset.split('.')[0] + '_train_y.npy'))
 
-    print(f'Top-1 performance: {clf.score(X_test, y_test)}')
-    print(f'Top-5 Performance: {np.mean(top_5)}\n')
+        if not (FEATURES_DIR / (args.dataset.split('.')[0] + '_test_features.npy')).is_file():
+            features_test = []
+            y_test = []
+            for entry, bbox in tqdm(zip(ds_eval, pred_bboxes), total=len(ds_eval)):
+                img = torch.tensor(entry.images).float().cuda()
 
-    del vit_model
+                img = torchvision.ops.roi_align(img.unsqueeze(0), [bbox.unsqueeze(0)], output_size=(224, 224))[0] / 255
+                img = val_transform(img.cpu()).cuda()
 
-    pred_labels_all = np.array([id_to_labels[le.inverse_transform([idx]).item()] for idx in clf.predict(X_test)])
+                fts = vit_model(img.unsqueeze(0)).cpu().numpy()
+                y_test.append(labels_to_id[entry.objects['name']])
+
+                features_test.append(fts[0])
+
+            X_test = np.array(features_test)
+            y_test = np.array(y_test)
+            np.save(FEATURES_DIR / (args.dataset.split('.')[0] + '_test_features.npy'), X_test)
+            np.save(FEATURES_DIR / (args.dataset.split('.')[0] + '_test_y.npy'), y_test)
+        else:
+            X_test = np.load(FEATURES_DIR / (args.dataset.split('.')[0] + '_test_features.npy'))
+            y_test = np.load(FEATURES_DIR / (args.dataset.split('.')[0] + '_test_y.npy'))
+
+        print('Learning the classfier over the DINO features')
+
+        le = LabelEncoder()
+        le.fit(y_train)
+
+        y_train = le.transform(y_train)
+        y_test = le.transform(y_test)
+
+        clf = make_pipeline(StandardScaler(), VotingClassifier(estimators=[
+            ('clf1', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
+            ('clf2', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
+            ('clf3', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
+            ('clf4', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
+            ('clf5', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000))], voting='soft'))
+        clf.fit(X_train, y_train)
+
+        top_5 = []
+        y_pred = clf.predict_proba(X_test)
+
+        for idx in range(len(y_pred)):
+            if y_test[idx] in np.argsort(y_pred[idx])[::-1][:5]:
+                top_5.append(1)
+            else:
+                top_5.append(0)
+
+        print(f'Top-1 performance: {clf.score(X_test, y_test)}')
+        print(f'Top-5 Performance: {np.mean(top_5)}\n')
+        pred_labels_all = np.array([id_to_labels[le.inverse_transform([idx]).item()] for idx in clf.predict(X_test)])
+
+        del vit_model
+
+    else:
+        model_cfg = argparse.ArgumentParser('').parse_args([])
+        model_cfg.model_name = 'tresnet_l'
+        model_cfg.model_path = '' #CLASSIFIERS_ML_DECODER_DIR / cfg.classifier
+        model_cfg.num_classes = len(labels)
+        model_cfg.num_of_groups = -1
+        model_cfg.use_ml_decoder = True
+        model_cfg.decoder_embedding = 768
+        model_cfg.zsl = False
+        model_cfg.image_size = 384
+
+        logger.info(f"creating model {model_cfg.model_name}...")
+
+        model = create_model(model_cfg, load_head=True).cuda()
+        state = torch.load(CLASSIFIERS_ML_DECODER_DIR / cfg.classifier, map_location='cpu')
+        model.load_state_dict(state, strict=True)
+
+        ########### eliminate BN for faster inference ###########
+        model = model.cpu()
+        model = InplacABN_to_ABN(model)
+        model = fuse_bn_recursively(model)
+        model = model.cuda().eval()
+
+
+        val_dataset = MLDecoderDetectionDataset(
+            scene_ds_eval,
+            labels_to_id,
+            pth_transforms.Compose([
+                pth_transforms.Resize((model_cfg.image_size, model_cfg.image_size)),
+                pth_transforms.ToTensor(),
+        ]))
+
+        logger.info("predicting labels:")
+        y_pred = []
+        pred_labels = []
+        for x,y in tqdm(val_dataset):
+            cls = np.argmax(model(x[None].cuda()).detach().cpu().numpy())
+            y_pred.append(cls)
+            pred_labels.append(id_to_labels[cls])
+
+        pred_labels_all = np.array(pred_labels)
+
 
     acc = []
     er = []
@@ -247,6 +294,9 @@ def evaluate(cfg):
 
     result_dicts = list()
 
+    coarse_model = load_pose_model(cfg.coarse_run_id, cfg, batch_renderer, mesh_db)
+    refine_model = load_pose_model(cfg.refine_run_id, cfg, batch_renderer, mesh_db)
+    
     for idx, data in tqdm(enumerate(ds_iter_eval), ncols=80, total=len(ds_iter_eval)):
         batch_size, _, h, w = data.images.shape
         images = cast(data.images).float() / 255.
@@ -384,10 +434,11 @@ if __name__ == '__main__':
     parser.add_argument('--coarse-run-id', default='', type=str)
     parser.add_argument('--refine-run-id', default='', type=str)
     parser.add_argument('--mrcnn-run-id', default='', type=str)
+    parser.add_argument('--classifier', default='', type=str)
     parser.add_argument('--niter', default=1, type=int)
     parser.add_argument('--dataset', default='', type=str)
-    parser.add_argument('--gt_bbox', default=False, action='store_true')
-    parser.add_argument('--gt_cls', default=False, action='store_true')
+    parser.add_argument('--gt-bbox', default=False, action='store_true')
+    parser.add_argument('--gt-cls', default=False, action='store_true')
     args = parser.parse_args()
     cfg = argparse.ArgumentParser('').parse_args([])
 
@@ -413,6 +464,7 @@ if __name__ == '__main__':
     cfg.backbone_pretrained = True
     cfg.coarse_run_id = args.coarse_run_id
     cfg.refine_run_id = args.refine_run_id
+    cfg.classifier = args.classifier
     cfg.mrcnn_run_id = args.mrcnn_run_id
     cfg.n_pose_dims = 9
     if 'cars' in cfg.dataset:
