@@ -4,6 +4,7 @@ import argparse
 import torchvision
 import numpy as np
 from pathlib import Path
+import pickle
 
 from tqdm import tqdm
 from torch.backends import cudnn
@@ -19,7 +20,7 @@ from sklearn.ensemble import VotingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 
-from focalpose.config import EXP_DIR, LOCAL_DATA_DIR, FEATURES_DIR
+from focalpose.config import EXP_DIR, LOCAL_DATA_DIR, FEATURES_DIR, CLASSIFIERS_DIR
 from focalpose.utils.resources import assign_gpu
 from focalpose.utils.logging import get_logger
 from focalpose.rendering.bullet_batch_renderer import BulletBatchRenderer
@@ -131,8 +132,6 @@ def evaluate(cfg):
     label_to_category_id['background'] = 0
     label_to_category_id['object'] = 1
 
-    coarse_model = load_pose_model(coarse_model, cfg, batch_renderer, mesh_db)
-    refine_model = load_pose_model(refine_model, cfg, batch_renderer, mesh_db)
     mrcnn_model = load_detector_model(detector_model, cfg, label_to_category_id)
 
     vit_model = vits.__dict__['vit_base'](patch_size=8, num_classes=0)
@@ -219,21 +218,51 @@ def evaluate(cfg):
         X_test = np.load(FEATURES_DIR / (ds_name.split('.')[0] + '_test_features.npy'))
         y_test = np.load(FEATURES_DIR / (ds_name.split('.')[0] + '_test_y.npy'))
 
-    print('Learning the classfier over the DINO features')
-
     le = LabelEncoder()
     le.fit(y_train)
 
-    y_train = le.transform(y_train)
-    y_test = le.transform(y_test)
+    clf_pkl = CLASSIFIERS_DIR / (ds_name.split('.')[0] + '_classifier.pkl')
+    if not clf_pkl.is_file():
+        print('Learning the classfier over the DINO features')
+        y_train = le.transform(y_train)
+        y_test = le.transform(y_test)
+        clf = make_pipeline(StandardScaler(), VotingClassifier(estimators=[
+            ('clf1', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
+            ('clf2', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
+            ('clf3', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
+            ('clf4', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
+            ('clf5', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000))], voting='soft')
+        )
+        clf.fit(X_train, y_train)
+        pred_train = clf.predict(X_train)
 
-    clf = make_pipeline(StandardScaler(), VotingClassifier(estimators=[
-        ('clf1', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
-        ('clf2', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
-        ('clf3', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
-        ('clf4', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000)),
-        ('clf5', LogisticRegression(tol=1e-10, n_jobs=-1, penalty='l2', C=10, solver='lbfgs', max_iter=100000))], voting='soft'))
-    clf.fit(X_train, y_train)
+        
+        
+        with open(clf_pkl.as_posix(), 'wb') as f:
+            pickle.dump(clf, f)
+    else:
+        print("Using cached classifier")
+        with open(clf_pkl.as_posix(), 'rb') as f:
+            clf = pickle.load(f)
+
+        device = 'cuda'
+
+        train_labels = []
+        for i in le.inverse_transform(list(range(len(le.classes_)))):
+            train_labels.append(id_to_labels[i])
+        points = mesh_db.select(train_labels).points.to(device)
+
+        from focalpose.models.model_classifier import ModelClassifier
+        m = ModelClassifier(X_train.shape[1], len(labels), points, ds_name.split('.')[0], n_estimators=5).to(device)
+        m.fit(torch.from_numpy(X_train).to(device), torch.from_numpy(y_train).to(device),
+              torch.from_numpy(X_test).to(device), torch.from_numpy(y_test).to(device))
+
+        pred_train = clf.predict_proba(X_train)
+        pred_test  = clf.predict_proba(X_test)
+        loss_train = torch.nn.CrossEntropyLoss()(torch.from_numpy(pred_train), torch.from_numpy(y_train))
+        loss_test  = torch.nn.CrossEntropyLoss()(torch.from_numpy(pred_test),  torch.from_numpy(y_test))
+        print("train sklearn loss:", loss_train.item())
+        print("test  sklearn loss:", loss_test.item())
 
     top_5 = []
     y_pred = clf.predict_proba(X_test)
@@ -274,6 +303,8 @@ def evaluate(cfg):
     del vit_model
     del mrcnn_model
 
+    coarse_model = load_pose_model(coarse_model, cfg, batch_renderer, mesh_db)
+    refine_model = load_pose_model(refine_model, cfg, batch_renderer, mesh_db)
     renderer = BulletSceneRenderer(urdf_ds=ds_name.split('.')[0], background_color=(255, 255, 255))
     for model_id, model_label in enumerate(model_labels):
         images = cast(torch.tensor(target_im.copy())).float().permute(2, 0, 1)[None] / 255.

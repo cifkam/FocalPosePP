@@ -42,7 +42,7 @@ def make_detections_from_segmentation(masks):
 
 def make_masks_from_det(detections, h, w):
     n_ids = len(detections)
-    detections = torch.as_tensor(detections)
+    detections = torch.as_tensor(np.array(detections))
     masks = torch.zeros((n_ids, h, w)).byte()
     for mask_n, det_n in zip(masks, detections):
         x1, y1, x2, y2 = det_n.cpu().int().tolist()
