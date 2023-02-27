@@ -55,10 +55,10 @@ def get_world_size():
 
 def init_distributed_mode(initfile=None):
     assert torch.cuda.device_count() == 1
-    if shutil.which('squeue'):
+    if 'SLURM_PROCID' in os.environ:
         rank = int(os.environ.get('SLURM_PROCID', 0))
         world_size = int(os.environ.get('SLURM_NTASKS', 1))
-    elif shutil.which('qstat'):
+    elif 'PMI_RANK' in os.environ:
         rank = int(os.environ.get('PMI_RANK', 0))
         world_size = int(os.environ.get('PMI_SIZE', 1))
     else:
