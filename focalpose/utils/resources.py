@@ -25,7 +25,7 @@ def get_total_memory():
     return mem / 1e9
 
 def assign_gpu():
-    if 'CUDA_VISIBLE_DEVICES' in os.environ:
+    if 'SLURM_LOCALID' in os.environ:
         device_ids = os.environ['CUDA_VISIBLE_DEVICES']
         device_ids = device_ids.split(',')
         slurm_localid = int(os.environ['SLURM_LOCALID'])
