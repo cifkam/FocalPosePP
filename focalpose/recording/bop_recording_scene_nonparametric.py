@@ -177,7 +177,7 @@ class BopRecordingSceneNonparametric(BopRecordingScene):
             uniqs = np.unique(cam_obs_['mask'])
 
             
-            valid = len(uniqs) == len(self.bodies) + 1
+            valid = len(uniqs) == len(self.bodies) + 1 and np.sum(mask) > 0
             if not valid: continue
             
             if self.soft_border_check_enlargement and not self.border_check:
@@ -195,6 +195,8 @@ class BopRecordingSceneNonparametric(BopRecordingScene):
                 mask[mask == self.background._body_id] = 0
                 mask[mask == 255] = 0
                 uniqs = np.unique(cam_obs_['mask'])
+                valid = len(uniqs) == len(self.bodies) + 1 and np.sum(mask) > 0
+                if not valid: continue
 
             if self.border_check and not self.soft_border_check_enlargement:
                 valid = self.check_border(uniqs, cam_obs_)
