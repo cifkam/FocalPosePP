@@ -30,6 +30,31 @@ def apply_imagespace_predictions(TCO, K, vxvyvz, dRCO):
     TCO_out[:, :3, :3] = dRCO @ TCO[:, :3, :3]
     return TCO_out
 
+def apply_imagespace_predictions_new(TCO, K_input, K_output, vxvyvz, dRCO):
+    assert TCO.shape[-2:] == (4, 4)
+    assert K_input.shape[-2:] == (3, 3)
+    assert K_output.shape[-2:] == (3, 3)
+    assert dRCO.shape[-2:] == (3, 3)
+    assert vxvyvz.shape[-1] == 3
+    TCO_out = TCO.clone()
+
+    # Translation in image space
+    zsrc = TCO[:, 2, [3]]
+    vz = vxvyvz[:, [2]]
+    ztgt = vz * zsrc
+
+    vxvy = vxvyvz[:, :2]
+    fxfy_input = K_input[:, [0, 1], [0, 1]]
+    fxfy_output = K_output[:, [0, 1], [0, 1]]
+    xsrcysrc = TCO[:, :2, 3]
+    TCO_out[:, 2, 3] = ztgt.flatten()
+    TCO_out[:, :2, 3] = (vxvy + ((fxfy_input*xsrcysrc) / zsrc.repeat(1, 2))) * ztgt.repeat(1, 2) / fxfy_output
+
+    # Rotation in camera frame
+    # TC1' = TC2' @  T2'1' where TC2' = T22' = dCRO is predicted and T2'1'=T21=TC1
+    TCO_out[:, :3, :3] = dRCO @ TCO[:, :3, :3]
+    return TCO_out
+
 
 def loss_CO_symmetric(TCO_possible_gt, TCO_pred, points, l1_or_l2=l1):
     bsz = TCO_possible_gt.shape[0]

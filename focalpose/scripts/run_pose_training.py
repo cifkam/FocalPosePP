@@ -225,6 +225,7 @@ def make_cfg(args):
     cfg.n_iterations = 1
     cfg.min_area = None
     cfg.predict_focal_length = True
+    cfg.new_update_rule = args.new_update_rule
     if 'disent' in args.config:
         cfg.loss_f_type = 'huber+reprojection+disent'
     elif 'reproj' in args.config:
@@ -268,6 +269,7 @@ if __name__ == '__main__':
     parser.add_argument('--config', default='', type=str)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--resume', default='', type=str)
+    parser.add_argument('--new-update-rule', action='store_true')
     args = parser.parse_args()
     assign_gpu()
     cfg = make_cfg(args)

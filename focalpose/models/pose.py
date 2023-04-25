@@ -9,7 +9,7 @@ from focalpose.lib3d.camera_geometry import project_points_robust as project_poi
 
 from focalpose.lib3d.rotations import (
     compute_rotation_matrix_from_ortho6d, compute_rotation_matrix_from_quaternions)
-from focalpose.lib3d.focalpose_ops import apply_imagespace_predictions
+from focalpose.lib3d.focalpose_ops import apply_imagespace_predictions, apply_imagespace_predictions_new
 
 from focalpose.utils.logging import get_logger
 logger = get_logger(__name__)
@@ -81,6 +81,18 @@ class PosePredictor(nn.Module):
         TCO_updated = apply_imagespace_predictions(TCO, K_crop, vxvyvz, dR)
         return TCO_updated
 
+    def update_pose_new(self, TCO, K_crop_input, K_crop_output, pose_outputs):
+        if self.pose_dim == 9:
+            dR = compute_rotation_matrix_from_ortho6d(pose_outputs[:, 0:6])
+            vxvyvz = pose_outputs[:, 6:9]
+        elif self.pose_dim == 7:
+            dR = compute_rotation_matrix_from_quaternions(pose_outputs[:, 0:4])
+            vxvyvz = pose_outputs[:, 4:7]
+        else:
+            raise ValueError(f'pose_dim={self.pose_dim} not supported')
+        TCO_updated = apply_imagespace_predictions_new(TCO, K_crop_input, K_crop_output, vxvyvz, dR)
+        return TCO_updated
+
     @staticmethod
     def update_camera_matrix(K, focal_length_update):
         K_updated = K.clone()
@@ -98,7 +110,7 @@ class PosePredictor(nn.Module):
             outputs[k] = head(x)
         return outputs
 
-    def forward(self, images, K, labels, TCO, n_iterations=1, update_focal_length=False):
+    def forward(self, images, K, labels, TCO, n_iterations=1, update_focal_length=False, new_update_rule=False):
         bsz, nchannels, h, w = images.shape
         assert K.shape == (bsz, 3, 3)
         assert TCO.shape == (bsz, 4, 4)
@@ -127,7 +139,10 @@ class PosePredictor(nn.Module):
                 K_output = K_input
                 K_crop_output = K_crop_input
 
-            TCO_output = self.update_pose(TCO_input, K_crop_output, model_outputs['pose'])
+            if new_update_rule:
+                TCO_output = self.update_pose_new(TCO_input, K_crop_input, K_crop_output, model_outputs['pose'])
+            else:
+                TCO_output = self.update_pose(TCO_input, K_crop_output, model_outputs['pose'])
 
             outputs[f'iteration={n+1}'] = {
                 'TCO_input': TCO_input,

@@ -52,7 +52,7 @@ def h_pose(model, mesh_db, data, meters,
 
     # model.module.enable_debug()
     outputs = model(images=images, K=K_init, labels=labels,
-                    TCO=TCO_init, n_iterations=n_iterations, update_focal_length=cfg.predict_focal_length)
+                    TCO=TCO_init, n_iterations=n_iterations, update_focal_length=cfg.predict_focal_length, new_update_rule=cfg.new_update_rule)
     # raise ValueError
 
     losses_TCO_iter = []
