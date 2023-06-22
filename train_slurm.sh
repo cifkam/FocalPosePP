@@ -27,4 +27,4 @@ else
   mkdir $JOB_DIR
 fi
 
-srun python -m focalpose.scripts.run_pose_training --config $2
+srun python -m focalpose.scripts.run_pose_training --config $2 --new-update-rule

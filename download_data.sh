@@ -9,6 +9,12 @@ wget http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar
 git clone https://github.com/yangyi02/finegrained-pose.git
 wget --no-check-certificate https://data.ciirc.cvut.cz/public/projects/2022FocalPose/checkpoints.zip
 wget --no-check-certificate https://data.ciirc.cvut.cz/public/projects/2022FocalPose/pix3d_test_list.txt
+
+wget -r --no-parent --no-check-certificate --reject="index.html*" https://data.ciirc.cvut.cz/public/projects/2023FocalPosePP/classifiers_ML_Decoder/
+wget -r --no-parent --no-check-certificate --reject="index.html*" https://data.ciirc.cvut.cz/public/projects/2023FocalPosePP/experiments/
+mv data.ciirc.cvut.cz/public/projects/2023FocalPosePP/* .
+rm -r data.ciirc.cvut.cz/
+
 cd ..
 
 
