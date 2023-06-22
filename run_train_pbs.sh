@@ -11,4 +11,4 @@ else
   mkdir $JOB_DIR
 fi
 
-python -m focalpose.scripts.run_pose_training --config $2
+python -m focalpose.scripts.run_pose_training --config $2 --new-update-rule
