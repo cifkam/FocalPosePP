@@ -304,7 +304,6 @@ def evaluate(cfg):
     refine_model = load_pose_model(cfg.refine_run_id, cfg, batch_renderer, mesh_db)
 
     if cfg.save_imgs:
-        logger.info('Rendering and saving images')
         renderer = BulletSceneRenderer(urdf_ds=cfg.dataset.split('.')[0], background_color=(255, 255, 255))
         imgs_dir = output_dir / 'imgs'
         imgs_dir.mkdir(exist_ok=True)
