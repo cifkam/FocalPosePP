@@ -1,3 +1,4 @@
+import cv2
 import yaml
 import torch
 import argparse
@@ -11,6 +12,10 @@ from torch.utils.data import DataLoader
 from torchvision.ops import box_iou
 from torchvision import transforms as pth_transforms
 
+from skimage import feature
+from skimage import morphology
+from skimage import color
+
 from scipy.linalg import logm
 
 from sklearn.pipeline import make_pipeline
@@ -22,6 +27,7 @@ from focalpose.config import EXP_DIR, LOCAL_DATA_DIR, FEATURES_DIR, CLASSIFIERS_
 from focalpose.utils.resources import assign_gpu
 from focalpose.utils.logging import get_logger
 from focalpose.rendering.bullet_batch_renderer import BulletBatchRenderer
+from focalpose.rendering.bullet_scene_renderer import BulletSceneRenderer
 from focalpose.datasets.datasets_cfg import make_urdf_dataset, make_scene_dataset
 from focalpose.datasets.pose_dataset import PoseDataset
 from focalpose.models.mask_rcnn import DetectorMaskRCNN
@@ -296,8 +302,16 @@ def evaluate(cfg):
 
     coarse_model = load_pose_model(cfg.coarse_run_id, cfg, batch_renderer, mesh_db)
     refine_model = load_pose_model(cfg.refine_run_id, cfg, batch_renderer, mesh_db)
-    
-    for idx, data in tqdm(enumerate(ds_iter_eval), ncols=80, total=len(ds_iter_eval)):
+
+    if cfg.save_imgs:
+        logger.info('Rendering and saving images')
+        renderer = BulletSceneRenderer(urdf_ds=cfg.dataset.split('.')[0], background_color=(255, 255, 255))
+        imgs_dir = output_dir / 'imgs'
+        imgs_dir.mkdir(exist_ok=True)
+
+
+    len_ds_eval = len(ds_eval)
+    for batch_idx, data in tqdm(enumerate(ds_iter_eval), ncols=80, total=len(ds_iter_eval)):
         batch_size, _, h, w = data.images.shape
         images = cast(data.images).float() / 255.
 
@@ -309,12 +323,12 @@ def evaluate(cfg):
         if args.gt_cls:
             pred_labels = labels_gt
         else:
-            pred_labels = pred_labels_all[idx*32:(idx+1)*32]
+            pred_labels = pred_labels_all[batch_idx*32:(batch_idx+1)*32]
 
         if args.gt_bbox:
             pred_bbox = bboxes_gt
         else:
-            pred_bbox = pred_bboxes[idx*32:(idx+1)*32]
+            pred_bbox = pred_bboxes[batch_idx*32:(batch_idx+1)*32]
 
         points = mesh_db.select(labels_gt).points
         points_init = mesh_db.select(pred_labels).points
@@ -379,25 +393,47 @@ def evaluate(cfg):
             ert.append((d_bbox/d_img)*(torch.norm(pts_pred_tr[idx] - pts_gt_tr[idx], dim=-1).mean().cpu().numpy()/np.linalg.norm(t_gt)))
             ep.append(torch.norm(pts_pred_proj[idx] - pts_gt_proj[idx], dim=-1).mean().cpu().numpy()/d_bbox)
 
-            result_dicts.append(
-                dict(
-                    T=TCO_pred[idx].cpu().numpy(),
-                    K=K_pred[idx].cpu().numpy(),
-                    T_gt=TCO_gt[idx].cpu().numpy(),
-                    T_init=TCO_init[idx].cpu().numpy(),
-                    T_coarse=TCO_coarse[idx].cpu().numpy(),
-                    K_gt=K_gt[idx].cpu().numpy(),
-                    bbox_pred=pred_bbox[idx].cpu().numpy(),
-                    bbox_gt=bboxes_gt[idx].cpu().numpy(),
-                    ef=np.abs(K_gt[idx, 0, 0].cpu().numpy() - K_pred[idx, 0, 0].cpu().numpy()) / np.abs(K_gt[idx, 0, 0].cpu().numpy()),
-                    er=np.linalg.norm(logm(R_gt.numpy().T @ R_pred.numpy(), disp=False)[0], ord='fro') / np.sqrt(2),
-                    et=np.linalg.norm(t_gt - t_pred)/np.linalg.norm(t_gt),
-                    ert=(d_bbox/d_img)*(torch.norm(pts_pred_tr[idx] - pts_gt_tr[idx], dim=-1).mean().cpu().numpy()/np.linalg.norm(t_gt)),
-                    ep=torch.norm(pts_pred_proj[idx] - pts_gt_proj[idx], dim=-1).mean().cpu().numpy()/d_bbox,
-                    label_gt=labels_gt[idx],
-                    label_pred=pred_labels[idx]
-                )
+            result = dict(
+                T=TCO_pred[idx].cpu().numpy(),
+                K=K_pred[idx].cpu().numpy(),
+                T_gt=TCO_gt[idx].cpu().numpy(),
+                T_init=TCO_init[idx].cpu().numpy(),
+                T_coarse=TCO_coarse[idx].cpu().numpy(),
+                K_gt=K_gt[idx].cpu().numpy(),
+                bbox_pred=pred_bbox[idx].cpu().numpy(),
+                bbox_gt=bboxes_gt[idx].cpu().numpy(),
+                ef=np.abs(K_gt[idx, 0, 0].cpu().numpy() - K_pred[idx, 0, 0].cpu().numpy()) / np.abs(K_gt[idx, 0, 0].cpu().numpy()),
+                er=np.linalg.norm(logm(R_gt.numpy().T @ R_pred.numpy(), disp=False)[0], ord='fro') / np.sqrt(2),
+                et=np.linalg.norm(t_gt - t_pred)/np.linalg.norm(t_gt),
+                ert=(d_bbox/d_img)*(torch.norm(pts_pred_tr[idx] - pts_gt_tr[idx], dim=-1).mean().cpu().numpy()/np.linalg.norm(t_gt)),
+                ep=torch.norm(pts_pred_proj[idx] - pts_gt_proj[idx], dim=-1).mean().cpu().numpy()/d_bbox,
+                label_gt=labels_gt[idx],
+                label_pred=pred_labels[idx]
             )
+            result_dicts.append(result)
+
+            if cfg.save_imgs:
+                    obj_infos = [dict(name=result['label_pred'], TWO=np.eye(4))]
+                    cam_infos = [dict(TWC=np.linalg.inv(result['T']), resolution=cfg.input_resize, K=result['K'])]
+                    rgb_pred_ren = renderer.render_scene(obj_infos, cam_infos)[0]['rgb']
+                    mask_pred = renderer.render_scene(obj_infos, cam_infos)[0]['mask']
+
+                    edges = feature.canny(mask_pred, sigma=0)
+                    edges = morphology.binary_dilation(edges, selem=np.ones((4, 4)))
+
+                    target_im = np.transpose(data.images[idx].numpy(), (1,2,0))
+                    target_im = cv2.resize(target_im, (cfg.input_resize[1], cfg.input_resize[0]))[..., ::-1]
+                    rgb_pred = target_im.copy().transpose(2, 0, 1)
+
+                    rgb_pred[0, edges] = 255
+                    rgb_pred[:, (mask_pred != 255)] = rgb_pred_ren.transpose(2, 0, 1)[:, (mask_pred != 255)]
+                    image = np.concatenate([target_im.transpose(2, 0, 1), rgb_pred], axis=-1).transpose(1, 2, 0)
+
+                    img_num = batch_size*batch_idx+idx
+                    padding_size = len(str(len_ds_eval-1))
+                    cv2.imwrite(str(imgs_dir / f'{str(img_num).zfill(padding_size)}.jpg'), image[:, :, [2, 1, 0]])
+                    #np.savetxt(f'{img_name}_output_model_{model_id}_K.txt', result['K'].cpu().numpy())
+                    #np.savetxt(f'{img_name}_output_model_{model_id}_TCO.txt', TCO_pred[0].cpu().numpy())
 
 
     log_dict = dict()
@@ -439,6 +475,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='', type=str)
     parser.add_argument('--gt-bbox', default=False, action='store_true')
     parser.add_argument('--gt-cls', default=False, action='store_true')
+    parser.add_argument('--save-imgs', default=False, action='store_true')
     args = parser.parse_args()
     cfg = argparse.ArgumentParser('').parse_args([])
 
@@ -477,5 +514,7 @@ if __name__ == '__main__':
     cfg.niter = args.niter
     cfg.gt_bbox = args.gt_bbox
     cfg.gt_cls = args.gt_cls
+    cfg.save_imgs = args.save_imgs
 
     evaluate(cfg=cfg)
+
