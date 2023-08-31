@@ -121,7 +121,7 @@ def evaluate(cfg):
     ds_iter_eval = DataLoader(ds_eval, batch_size=32, num_workers=cfg.n_dataloader_workers,
                               collate_fn=ds_eval.collate_fn, drop_last=False, pin_memory=False, shuffle=False)
 
-    print(f"Generating bounding boxes for the dataset: {args.dataset}")
+    print(f"Generating bounding boxes for the dataset: {cfg.dataset}")
     label_to_category_id = dict()
     label_to_category_id['background'] = 0
     label_to_category_id['object'] = 1
@@ -168,8 +168,8 @@ def evaluate(cfg):
         vit_model.load_state_dict(torch.load(LOCAL_DATA_DIR / 'dino_vitbase8_pretrain.pth'), strict=True)
 
 
-        if not (FEATURES_DIR / (args.dataset.split('.')[0] + '_train_features.npy')).is_file():
-            print(f"Extracting DINO features for the dataset: {args.dataset}")
+        if not (FEATURES_DIR / (cfg.dataset.split('.')[0] + '_train_features.npy')).is_file():
+            print(f"Extracting DINO features for the dataset: {cfg.dataset}")
             features_train = []
             y_train = []
             for entry in tqdm(ds_train, total=len(ds_train)):
@@ -187,14 +187,14 @@ def evaluate(cfg):
 
             X_train = np.array(features_train)
             y_train = np.array(y_train)
-            np.save(FEATURES_DIR / (args.dataset.split('.')[0] + '_train_features.npy'), X_train)
-            np.save(FEATURES_DIR / (args.dataset.split('.')[0] + '_train_y.npy'), y_train)
+            np.save(FEATURES_DIR / (cfg.dataset.split('.')[0] + '_train_features.npy'), X_train)
+            np.save(FEATURES_DIR / (cfg.dataset.split('.')[0] + '_train_y.npy'), y_train)
         else:
-            print(f"Using cached DINO features for the dataset: {args.dataset}")
-            X_train = np.load(FEATURES_DIR / (args.dataset.split('.')[0] + '_train_features.npy'))
-            y_train = np.load(FEATURES_DIR / (args.dataset.split('.')[0] + '_train_y.npy'))
+            print(f"Using cached DINO features for the dataset: {cfg.dataset}")
+            X_train = np.load(FEATURES_DIR / (cfg.dataset.split('.')[0] + '_train_features.npy'))
+            y_train = np.load(FEATURES_DIR / (cfg.dataset.split('.')[0] + '_train_y.npy'))
 
-        if not (FEATURES_DIR / (args.dataset.split('.')[0] + '_test_features.npy')).is_file():
+        if not (FEATURES_DIR / (cfg.dataset.split('.')[0] + '_test_features.npy')).is_file():
             features_test = []
             y_test = []
             for entry, bbox in tqdm(zip(ds_eval, pred_bboxes), total=len(ds_eval)):
@@ -210,11 +210,11 @@ def evaluate(cfg):
 
             X_test = np.array(features_test)
             y_test = np.array(y_test)
-            np.save(FEATURES_DIR / (args.dataset.split('.')[0] + '_test_features.npy'), X_test)
-            np.save(FEATURES_DIR / (args.dataset.split('.')[0] + '_test_y.npy'), y_test)
+            np.save(FEATURES_DIR / (cfg.dataset.split('.')[0] + '_test_features.npy'), X_test)
+            np.save(FEATURES_DIR / (cfg.dataset.split('.')[0] + '_test_y.npy'), y_test)
         else:
-            X_test = np.load(FEATURES_DIR / (args.dataset.split('.')[0] + '_test_features.npy'))
-            y_test = np.load(FEATURES_DIR / (args.dataset.split('.')[0] + '_test_y.npy'))
+            X_test = np.load(FEATURES_DIR / (cfg.dataset.split('.')[0] + '_test_features.npy'))
+            y_test = np.load(FEATURES_DIR / (cfg.dataset.split('.')[0] + '_test_y.npy'))
 
         print('Learning the classfier over the DINO features')
 
@@ -319,12 +319,12 @@ def evaluate(cfg):
         bboxes_gt = cast(data.bboxes).float()
         labels_gt = np.array([obj['name'] for obj in data.objects])
 
-        if args.gt_cls:
+        if cfg.gt_cls:
             pred_labels = labels_gt
         else:
             pred_labels = pred_labels_all[batch_idx*32:(batch_idx+1)*32]
 
-        if args.gt_bbox:
+        if cfg.gt_bbox:
             pred_bbox = bboxes_gt
         else:
             pred_bbox = pred_bboxes[batch_idx*32:(batch_idx+1)*32]
