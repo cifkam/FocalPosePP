@@ -304,7 +304,6 @@ def evaluate(cfg):
     refine_model = load_pose_model(cfg.refine_run_id, cfg, batch_renderer, mesh_db)
 
     if cfg.save_imgs:
-        renderer = BulletSceneRenderer(urdf_ds=cfg.dataset.split('.')[0], background_color=(255, 255, 255))
         imgs_dir = output_dir / 'imgs'
         imgs_dir.mkdir(exist_ok=True)
 
@@ -412,6 +411,7 @@ def evaluate(cfg):
             result_dicts.append(result)
 
             if cfg.save_imgs:
+                    renderer = BulletSceneRenderer(urdf_ds=cfg.dataset.split('.')[0], background_color=(255, 255, 255))
                     obj_infos = [dict(name=result['label_pred'], TWO=np.eye(4))]
                     cam_infos = [dict(TWC=np.linalg.inv(result['T']), resolution=cfg.input_resize, K=result['K'])]
                     rgb_pred_ren = renderer.render_scene(obj_infos, cam_infos)[0]['rgb']
@@ -420,17 +420,17 @@ def evaluate(cfg):
                     edges = feature.canny(mask_pred, sigma=0)
                     edges = morphology.binary_dilation(edges, selem=np.ones((4, 4)))
 
-                    target_im = np.transpose(data.images[idx].numpy(), (1,2,0))
+                    target_im = np.transpose(data.images[idx].numpy(), (1,2,0))[:,:,::-1]
                     target_im = cv2.resize(target_im, (cfg.input_resize[1], cfg.input_resize[0]))[..., ::-1]
                     rgb_pred = target_im.copy().transpose(2, 0, 1)
 
                     rgb_pred[0, edges] = 255
                     rgb_pred[:, (mask_pred != 255)] = rgb_pred_ren.transpose(2, 0, 1)[:, (mask_pred != 255)]
                     image = np.concatenate([target_im.transpose(2, 0, 1), rgb_pred], axis=-1).transpose(1, 2, 0)
-
                     img_num = batch_size*batch_idx+idx
                     padding_size = len(str(len_ds_eval-1))
                     cv2.imwrite(str(imgs_dir / f'{str(img_num).zfill(padding_size)}.jpg'), image[:, :, [2, 1, 0]])
+                    del renderer
                     #np.savetxt(f'{img_name}_output_model_{model_id}_K.txt', result['K'].cpu().numpy())
                     #np.savetxt(f'{img_name}_output_model_{model_id}_TCO.txt', TCO_pred[0].cpu().numpy())
 
