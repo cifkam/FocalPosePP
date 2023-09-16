@@ -86,18 +86,18 @@ def evaluate(cfg):
 
     if cfg.cls in ['bed', 'sofa', 'table', 'chair']:
         ds_name = f'pix3d-{cfg.cls}.test.gt'
-        coarse_model = f'pix3d-{cfg.cls}-coarse-F05p-disent--cvpr2022'
-        refine_model = f'pix3d-{cfg.cls}-refine-F05p-disent--cvpr2022'
+        coarse_model = str(Path('param_newupdate')/f'pix3d-{cfg.cls}-coarse-disent-F05p--param_newupdate')
+        refine_model = str(Path('param_newupdate')/f'pix3d-{cfg.cls}-refine-disent-F05p--param_newupdate')
         detector_model = f'detector-pix3d-{cfg.cls}-real-two-class--cvpr2022'
     elif cfg.cls == 'compcars':
         ds_name = f'compcars3d.test.gt'
-        coarse_model = f'compcars3d-coarse-F05p-disent--cvpr2022'
-        refine_model = f'compcars3d-refine-F05p-disent--cvpr2022'
+        coarse_model = str(Path('param_newupdate')/'compcars3d-coarse-disent-F05p--param_newupdate')
+        refine_model = str(Path('param_newupdate')/'compcars3d-refine-disent-F05p--param_newupdate')
         detector_model = f'detector-compcars3d-real-two-class--cvpr2022'
     elif cfg.cls == 'stanfordcars':
         ds_name = f'stanfordcars3d.test.gt'
-        coarse_model = f'stanfordcars3d-coarse-F05p-disent--cvpr2022'
-        refine_model = f'stanfordcars3d-refine-F05p-disent--cvpr2022'
+        coarse_model = str(Path('param_newupdate')/'stanfordcars3d-coarse-disent-F05p--param_newupdate')
+        refine_model = str(Path('param_newupdate')/'stanfordcars3d-refine-disent-F05p--param_newupdate')
         detector_model = f'detector-stanfordcars3d-real-two-class--cvpr2022'
 
     urdf_ds = make_urdf_dataset(ds_name.split('.')[0])
@@ -305,11 +305,10 @@ def evaluate(cfg):
         model = fuse_bn_recursively(model)
         model = model.cuda().eval()
 
-        #TODO: predict
         im = torch.from_numpy(np.transpose(target_im, (2,0,1)).copy())[None]/255.0
         model_cls_scores = torch.sigmoid(model(im.cuda())).detach().cpu().numpy()
-        model_cls_ids = np.argsort(model_cls_scores, axis=1)[:, -cfg.topk:]
-        model_labels = [id_to_labels[x] for x in model_cls_ids[0]]
+        model_cls_ids = np.argsort(model_cls_scores, axis=1)[0, -cfg.topk:][::-1]
+        model_labels = [id_to_labels[x] for x in model_cls_ids]
 
         del model
 
@@ -378,7 +377,7 @@ if __name__ == '__main__':
                         choices=['chair', 'sofa', 'table', 'bed', 'compcars', 'stanfordcars'])
     parser.add_argument('--niter', default=1, type=int)
     parser.add_argument('--topk', default=15, type=int)
-    parser.add_argument('--classifier', default='', type=str)
+    #parser.add_argument('--classifier', default='', type=str)
     args = parser.parse_args()
     cfg = argparse.ArgumentParser('').parse_args([])
 
@@ -403,7 +402,12 @@ if __name__ == '__main__':
     cfg.img = args.img
     cfg.cls = args.cls
     cfg.topk = args.topk
-    cfg.classifier = args.classifier
+    
+    # ML-Decoder classifier
+    if 'cars' in cfg.cls:
+        cfg.classifier = f'model-{args.cls}-real+synth1k.ckpt'
+    else:
+        cfg.classifier = f'model-pix3d-{args.cls}-real+synth1k.ckpt'
 
     # Data
     if 'cars' in cfg.cls:
