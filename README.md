@@ -12,8 +12,11 @@ FocalPose++: Enhanced Object Pose and Camera Model Estimation
 <a href="https://petrikvladimir.github.io/">Vladimír Petrík</a>,
 <a href="http://www.di.ens.fr/~josef/">Josef Sivic</a>
 <br>
+<br>
+<a href="https://arxiv.org/abs/2312.02985">[Paper]</a>
 </h3>
 </div>
+
 
 This repository contains code, models and dataset for our extension of the [FocalPose](https://github.com/ponimatkin/focalpose) method, the original paper was published on Conference on Computer Vision and Pattern Recognition, 2022. For more details on FocalPose, see the [project page](https://ponimatkin.github.io/focalpose/index.html) and the [paper](https://arxiv.org/abs/2204.05145).
 
@@ -95,12 +98,15 @@ iterations and the script will output top-15 model instances predicted by our in
 of images with aligned meshes, and `.txt` files containing camera matrix and camera pose.
 
 ## Citation
-If you use this code in your research, please cite the original FocalPose paper and provide a link to this GitHub repository, the paper for the extension will be available in the future:
+If you use this code in your research, please cite the following paper:
 
 ```
-@inproceedings{ponimatkin2022focal, 
-title= {Focal Length and Object Pose Estimation via Render and Compare}, 
-author={G. {Ponimatkin} and Y. {Labbe} and B. {Russell} and M. {Aubry} and J. {Sivic}}, 
-booktitle={Proceedings of the Conference on Computer Vision and Pattern Recognition (CVPR)}, 
-year={2022}} }
+@misc{cifka2023focalpose,
+      title={FocalPose++: Focal Length and Object Pose Estimation via Render and Compare}, 
+      author={M. {Cífka} and G. {Ponimatkin} and Y. {Labbe} and B. {Russell} and M. {Aubry} and V. {Petrik} and J. {Sivic}}, 
+      year={2023},
+      eprint={2312.02985},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
+}
 ```
