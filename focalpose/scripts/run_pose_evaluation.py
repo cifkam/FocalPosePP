@@ -332,22 +332,23 @@ def evaluate(cfg):
         points_init = mesh_db.select(pred_labels).points
 
         K_init = K_gt.clone()
-        K_init[:, 0, 0] = 600
-        K_init[:, 1, 1] = 600
+        if not cfg.gt_f:
+            K_init[:, 0, 0] = 600
+            K_init[:, 1, 1] = 600
 
         TCO_init = TCO_init_from_boxes_zup_autodepth(model_points_3d=points_init, boxes_2d=pred_bbox, K=K_init)
 
         if cfg.niter > 0:
             with torch.no_grad():
                 outputs = coarse_model(images=images, K=K_init, labels=pred_labels,
-                                           TCO=TCO_init, n_iterations=1, update_focal_length=True)
+                                           TCO=TCO_init, n_iterations=1, update_focal_length=not cfg.gt_f, new_update_rule=cfg.new_update_rule)
             iter_outputs = outputs[f'iteration={1}']
             TCO_coarse = iter_outputs['TCO_output']
             K_init = iter_outputs['K_output']
 
             with torch.no_grad():
                 outputs = refine_model(images=images, K=K_init, labels=pred_labels,
-                                       TCO=TCO_coarse, n_iterations=cfg.niter, update_focal_length=True)
+                                       TCO=TCO_coarse, n_iterations=cfg.niter, update_focal_length=not cfg.gt_f, new_update_rule=cfg.new_update_rule)
 
             iter_outputs = outputs[f'iteration={cfg.niter}']
             TCO_pred = iter_outputs['TCO_output']
@@ -355,7 +356,7 @@ def evaluate(cfg):
         else:
             with torch.no_grad():
                 outputs = coarse_model(images=images, K=K_init, labels=pred_labels,
-                                           TCO=TCO_init, n_iterations=1, update_focal_length=True)
+                                           TCO=TCO_init, n_iterations=1, update_focal_length=not cfg.gt_f, new_update_rule=cfg.new_update_rule)
 
             iter_outputs = outputs[f'iteration={1}']
             TCO_pred = iter_outputs['TCO_output']
@@ -470,11 +471,13 @@ if __name__ == '__main__':
     parser.add_argument('--refine-run-id', default='', type=str)
     parser.add_argument('--mrcnn-run-id', default='', type=str)
     parser.add_argument('--classifier', default='', type=str)
-    parser.add_argument('--niter', default=1, type=int)
+    parser.add_argument('--niter', default=15, type=int)
     parser.add_argument('--dataset', default='', type=str)
     parser.add_argument('--gt-bbox', default=False, action='store_true')
     parser.add_argument('--gt-cls', default=False, action='store_true')
+    parser.add_argument('--gt-f', default=False, action='store_true')
     parser.add_argument('--save-imgs', default=False, action='store_true')
+    parser.add_argument('--new-update-rule', default=False, action='store_true')
     args = parser.parse_args()
     cfg = argparse.ArgumentParser('').parse_args([])
 
@@ -513,7 +516,9 @@ if __name__ == '__main__':
     cfg.niter = args.niter
     cfg.gt_bbox = args.gt_bbox
     cfg.gt_cls = args.gt_cls
+    cfg.gt_f = args.gt_f
     cfg.save_imgs = args.save_imgs
+    cfg.new_update_rule = args.new_update_rule
 
     evaluate(cfg=cfg)
 
