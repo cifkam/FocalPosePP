@@ -1,24 +1,28 @@
 <h1 align="center">
-FocalPose++: Enhanced Object Pose and Camera Model Estimation
+FocalPose++: Focal Length and Object Pose Estimation via Render and Compare
 </h1>
 
 <div align="center">
 <h3>
- Martin Cífka,
+<a href="http://cifkam.github.io">Martin Cífka</a>,
 <a href="http://ponimatkin.github.io">Georgy Ponimatkin</a>,
 <a href="http://ylabbe.github.io">Yann Labbé</a>,
- <a href="http://bryanrussell.org">Bryan Russell</a>,
+<a href="http://bryanrussell.org">Bryan Russell</a>,
 <a href="http://imagine.enpc.fr/~aubrym/">Mathieu Aubry</a>,
 <a href="https://petrikvladimir.github.io/">Vladimír Petrík</a>,
 <a href="http://www.di.ens.fr/~josef/">Josef Sivic</a>
 <br>
 <br>
+TPAMI: IEEE Transactions on Pattern Analysis and Machine Intelligence, 2024
+<br>
+<br>
 <a href="https://arxiv.org/abs/2312.02985">[Paper]</a>
+<a href="https://cifkam.github.io/focalpose">[Project page]</a>
 </h3>
 </div>
 
 
-This repository contains code, models and dataset for our extension of the [FocalPose](https://github.com/ponimatkin/focalpose) method, the original paper was published on Conference on Computer Vision and Pattern Recognition, 2022. For more details on FocalPose, see the [project page](https://ponimatkin.github.io/focalpose/index.html) and the [paper](https://arxiv.org/abs/2204.05145).
+This repository contains code, models and dataset for our extension of the [FocalPose](https://github.com/ponimatkin/focalpose) method, the original paper was published on Conference on Computer Vision and Pattern Recognition, 2022.
 
 
  
@@ -101,12 +105,13 @@ of images with aligned meshes, and `.txt` files containing camera matrix and cam
 If you use this code in your research, please cite the following paper:
 
 ```
-@misc{cifka2023focalpose,
-      title={FocalPose++: Focal Length and Object Pose Estimation via Render and Compare}, 
-      author={M. {Cífka} and G. {Ponimatkin} and Y. {Labbe} and B. {Russell} and M. {Aubry} and V. {Petrik} and J. {Sivic}}, 
-      year={2023},
-      eprint={2312.02985},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV}
+@article{cifka2024focalpose++,
+    title={{F}ocal{P}ose++: {F}ocal {L}ength and {O}bject {P}ose {E}stimation via {R}ender and {C}ompare},
+    author={C{\'\i}fka, Martin and Ponimatkin, Georgy and Labb{\'e}, Yann and Russell, Bryan and Aubry, Mathieu and Petrik, Vladimir and Sivic, Josef},
+    journal={IEEE Transactions on Pattern Analysis and Machine Intelligence},
+    year={2024},
+    publisher={IEEE},
+    pages={1-17},
+    doi={10.1109/TPAMI.2024.3475638}
 }
 ```
