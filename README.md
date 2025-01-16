@@ -107,7 +107,7 @@ If you use this code in your research, please cite the following paper:
 ```
 @article{cifka2024focalpose++,
     title={{F}ocal{P}ose++: {F}ocal {L}ength and {O}bject {P}ose {E}stimation via {R}ender and {C}ompare},
-    author={C{\'\i}fka, Martin and Ponimatkin, Georgy and Labb{\'e}, Yann and Russell, Bryan and Aubry, Mathieu and Petrik, Vladimir and Sivic, Josef},
+    author={C{\'i}fka, Martin and Ponimatkin, Georgy and Labb{\'e}, Yann and Russell, Bryan and Aubry, Mathieu and Petrik, Vladimir and Sivic, Josef},
     journal={IEEE Transactions on Pattern Analysis and Machine Intelligence},
     year={2024},
     publisher={IEEE},
