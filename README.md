@@ -6,11 +6,12 @@ If you find FocalPose++ useful for your work please cite:
 ```
 @article{cifka2024focalpose++,
     title={{F}ocal{P}ose++: {F}ocal {L}ength and {O}bject {P}ose {E}stimation via {R}ender and {C}ompare},
-    author={C{\'\i}fka, Martin and Ponimatkin, Georgy and Labb{\'e}, Yann and Russell, Bryan and Aubry, Mathieu and Petrik, Vladimir and Sivic, Josef},
+    author={C{\'i}fka, Martin and Ponimatkin, Georgy and Labb{\'e}, Yann and Russell, Bryan and Aubry, Mathieu and Petrik, Vladimir and Sivic, Josef},
     journal={IEEE Transactions on Pattern Analysis and Machine Intelligence},
-    year={2024},
-    publisher={IEEE},
-    pages={1-17},
+    year={2025},
+    volume={47},
+    number={2},
+    pages={755-772},
     doi={10.1109/TPAMI.2024.3475638}
 }
 ```
